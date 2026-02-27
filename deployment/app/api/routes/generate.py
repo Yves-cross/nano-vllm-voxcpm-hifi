@@ -75,10 +75,6 @@ def _validate_generate_prompt(req: GenerateRequest) -> None:
             },
         },
         400: {"description": "Invalid input", "model": ErrorResponse},
-        422: {
-            "description": "Validation error",
-            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HTTPValidationError"}}},
-        },
         503: {"description": "Model server not ready", "model": ErrorResponse},
         500: {"description": "Internal error", "model": ErrorResponse},
     },
