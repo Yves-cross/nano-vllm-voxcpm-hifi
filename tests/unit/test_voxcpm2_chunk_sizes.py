@@ -27,6 +27,23 @@ def test_audio_vae_v2_exposes_encoder_and_decoder_chunk_sizes():
     assert padded.shape[-1] == 20
 
 
+def test_audio_vae_v2_uses_fixed_batch_shaped_sr_idx():
+    from nanovllm_voxcpm.layers.audio_vae_v2 import CausalDecoder
+
+    decoder = CausalDecoder(
+        input_channel=4,
+        channels=8,
+        rates=[2],
+        sr_bin_boundaries=[20000, 30000, 40000],
+    )
+
+    sr_idx = decoder.get_sr_idx(batch_size=3, device=torch.device("cpu"))
+
+    assert sr_idx.dtype == torch.long
+    assert sr_idx.shape == (3,)
+    assert sr_idx.tolist() == [3, 3, 3]
+
+
 def test_voxcpm2_engine_aligns_prompt_audio_with_encoder_chunk_size():
     from nanovllm_voxcpm.models.voxcpm2.engine import VoxCPM2Engine
 

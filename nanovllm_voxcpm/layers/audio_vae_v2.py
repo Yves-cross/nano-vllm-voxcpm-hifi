@@ -290,10 +290,12 @@ class CausalDecoder(nn.Module):
         if sr_bin_boundaries is None:
             self.model = nn.Sequential(*layers)
             self.sr_bin_boundaries = None
+            self.default_sr_idx = None
         else:
             self.model = nn.ModuleList(layers)
             self.register_buffer("sr_bin_boundaries", torch.tensor(sr_bin_boundaries, dtype=torch.int32))
             self.sr_bin_buckets = len(sr_bin_boundaries) + 1
+            self.default_sr_idx = len(sr_bin_boundaries)
             cond_layers = []
             for layer in self.model:
                 if layer.__class__.__name__ == "CausalDecoderBlock":
@@ -310,14 +312,17 @@ class CausalDecoder(nn.Module):
                     cond_layers.append(None)
             self.sr_cond_model = nn.ModuleList(cond_layers)
 
-    def get_sr_idx(self, sample_rate):
-        return torch.bucketize(sample_rate, self.sr_bin_boundaries)
+    def get_sr_idx(self, batch_size: int, device: torch.device):
+        if self.default_sr_idx is None:
+            raise RuntimeError("sr_cond is not configured for this decoder")
+        return torch.full((batch_size,), fill_value=self.default_sr_idx, dtype=torch.long, device=device)
 
     def forward(self, x, sr_cond=None):
         if self.sr_bin_boundaries is None:
             return self.model(x)
 
-        sr_cond = self.get_sr_idx(sr_cond)
+        if sr_cond is None:
+            sr_cond = self.get_sr_idx(x.shape[0], x.device)
         for layer, sr_cond_layer in zip(self.model, self.sr_cond_model):
             if sr_cond_layer is not None:
                 x = sr_cond_layer(x, sr_cond)
@@ -398,8 +403,6 @@ class AudioVAEV2(nn.Module):
 
     @torch.inference_mode()
     def decode(self, z: torch.Tensor, sr_cond: torch.Tensor | None = None):
-        if self.sr_bin_boundaries is not None and sr_cond is None:
-            sr_cond = torch.tensor([self.out_sample_rate], device=z.device, dtype=torch.int32)
         return self.decoder(z, sr_cond)
 
     @torch.inference_mode()
