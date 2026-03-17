@@ -352,9 +352,6 @@ class AudioVAEV2(nn.Module):
             config = AudioVAEConfigV2(**kwargs) if kwargs else AudioVAEConfigV2()
         elif kwargs:
             raise ValueError("Pass either config or keyword args to AudioVAEV2, not both")
-
-        print("AudioVAEV2 config: ", config)
-
         super().__init__()
         self.encoder_dim = config.encoder_dim
         self.encoder_rates = config.encoder_rates
