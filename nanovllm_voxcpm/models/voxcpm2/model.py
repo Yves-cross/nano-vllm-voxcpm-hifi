@@ -111,6 +111,7 @@ class Cpm4Attention(nn.Module):
         qkv_bias: bool = False,
         rope_theta: float = 10000,
         rope_scaling=None,
+        use_rope: bool = True,
         apply_qk_norm: bool = False,
         lora_config: Optional[LoRAConfig] = None,
     ) -> None:
@@ -125,6 +126,7 @@ class Cpm4Attention(nn.Module):
         self.kv_size = self.num_kv_heads * self.head_dim
         self.scaling = self.head_dim**-0.5
         self.max_position = max_position
+        self.use_rope = use_rope
         self.apply_qk_norm = apply_qk_norm
         self.is_causal = is_causal
 
@@ -163,7 +165,11 @@ class Cpm4Attention(nn.Module):
         else:
             self.o_proj = RowParallelLinear(self.total_num_heads * self.head_dim, hidden_size, bias=qkv_bias)
 
-        self.rotary_emb = get_cpm4_rope(self.head_dim, self.head_dim, self.max_position, rope_theta, rope_scaling)
+        self.rotary_emb = (
+            get_cpm4_rope(self.head_dim, self.head_dim, self.max_position, rope_theta, rope_scaling)
+            if self.use_rope
+            else None
+        )
         self.attn = Attention(self.num_heads, self.head_dim, self.scaling, self.num_kv_heads, is_causal=self.is_causal)
         self.q_norm = RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
         self.k_norm = RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
@@ -171,11 +177,13 @@ class Cpm4Attention(nn.Module):
     def forward(self, positions: torch.Tensor, hidden_states: torch.Tensor) -> torch.Tensor:
         qkv = self.qkv_proj(hidden_states)
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+        rotary_emb = self.rotary_emb
         if self.is_causal:
             if self.q_norm is not None:
                 q = self.q_norm(q.view(-1, self.num_heads, self.head_dim)).view(q.shape)
                 k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(k.shape)
-            q, k = self.rotary_emb(positions, q, k)
+            if rotary_emb is not None:
+                q, k = rotary_emb(positions, q, k)
             q = q.view(-1, self.num_heads, self.head_dim)
             k = k.view(-1, self.num_kv_heads, self.head_dim)
             v = v.view(-1, self.num_kv_heads, self.head_dim)
@@ -184,7 +192,8 @@ class Cpm4Attention(nn.Module):
             if self.q_norm is not None:
                 q = self.q_norm(q.view(-1, self.num_heads, self.head_dim)).view(q.shape)
                 k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(k.shape)
-            q, k = self.rotary_emb(positions.repeat(bsz), q, k)
+            if rotary_emb is not None:
+                q, k = rotary_emb(positions.repeat(bsz), q, k)
             q = q.view(bsz, -1, self.num_heads, self.head_dim)
             k = k.view(bsz, -1, self.num_kv_heads, self.head_dim)
             v = v.view(bsz, -1, self.num_kv_heads, self.head_dim)
@@ -230,7 +239,11 @@ class Cpm4MLP(nn.Module):
 
 class Cpm4DecoderLayer(nn.Module):
     def __init__(
-        self, config: MiniCPM4Config, is_causal: bool = True, lora_config: Optional[LoRAConfig] = None
+        self,
+        config: MiniCPM4Config,
+        is_causal: bool = True,
+        lora_config: Optional[LoRAConfig] = None,
+        use_rope: bool = True,
     ) -> None:
         super().__init__()
         self.self_attn = Cpm4Attention(
@@ -244,6 +257,7 @@ class Cpm4DecoderLayer(nn.Module):
             head_dim=getattr(config, "kv_channels", None),
             rope_theta=getattr(config, "rope_theta", 10000),
             rope_scaling=getattr(config, "rope_scaling", None),
+            use_rope=use_rope,
             apply_qk_norm=getattr(config, "apply_qk_norm", False),
             lora_config=lora_config,
         )
@@ -263,7 +277,11 @@ class Cpm4DecoderLayer(nn.Module):
 
 class Cpm4Model(nn.Module):
     def __init__(
-        self, config: MiniCPM4Config, is_causal: bool = True, lora_config: Optional[LoRAConfig] = None
+        self,
+        config: MiniCPM4Config,
+        is_causal: bool = True,
+        lora_config: Optional[LoRAConfig] = None,
+        use_rope: bool = True,
     ) -> None:
         super().__init__()
         self.config = config
@@ -271,7 +289,10 @@ class Cpm4Model(nn.Module):
             VocabParallelEmbedding(config.vocab_size, config.hidden_size) if config.vocab_size > 0 else nn.Identity()
         )
         self.layers = nn.ModuleList(
-            [Cpm4DecoderLayer(config, is_causal, lora_config) for _ in range(config.num_hidden_layers)]
+            [
+                Cpm4DecoderLayer(config, is_causal, lora_config, use_rope=use_rope)
+                for _ in range(config.num_hidden_layers)
+            ]
         )
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -467,7 +488,11 @@ class VoxCPM2Model(nn.Module):
         residual_lm_config = config.lm_config.model_copy(deep=True)
         residual_lm_config.num_hidden_layers = config.residual_lm_num_layers
         residual_lm_config.vocab_size = 0
-        self.residual_lm = Cpm4Model(residual_lm_config, lora_config=lm_lora_config)
+        self.residual_lm = Cpm4Model(
+            residual_lm_config,
+            lora_config=lm_lora_config,
+            use_rope=not config.residual_lm_no_rope,
+        )
 
         encoder_config = config.lm_config.model_copy(deep=True)
         encoder_config.hidden_size = config.encoder_config.hidden_dim

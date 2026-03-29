@@ -103,6 +103,7 @@ class VoxCPM2Config(BaseModel):
     patch_size: int = 4
     feat_dim: int = 64
     residual_lm_num_layers: int = 8
+    residual_lm_no_rope: bool = False
     scalar_quantization_latent_dim: int = 512
     scalar_quantization_scale: int = 9
 
