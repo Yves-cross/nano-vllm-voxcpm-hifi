@@ -3,13 +3,13 @@ import numpy as np
 import soundfile as sf
 from tqdm.asyncio import tqdm
 import time
-from nanovllm_voxcpm.models.voxcpm.server import SyncVoxCPMServerPool
+from nanovllm_voxcpm.models.voxcpm2.server import SyncVoxCPM2ServerPool
 
 
 def main():
     print("Loading...")
-    server: SyncVoxCPMServerPool = VoxCPM.from_pretrained(
-        "~/VoxCPM1.5",
+    server: SyncVoxCPM2ServerPool = VoxCPM.from_pretrained(
+        "openbmb/VoxCPM2",
         max_num_batched_tokens=8192,
         max_num_seqs=16,
         max_model_len=4096,

@@ -3,7 +3,7 @@ Asynchronous LoRA Test Script
 """
 
 from nanovllm_voxcpm import VoxCPM
-from nanovllm_voxcpm.models.voxcpm.server import LoRAConfig, AsyncVoxCPMServerPool
+from nanovllm_voxcpm.models.voxcpm2.server import LoRAConfig, AsyncVoxCPM2ServerPool
 import numpy as np
 import soundfile as sf
 from tqdm.asyncio import tqdm
@@ -13,7 +13,7 @@ import asyncio
 
 async def main():
     # ==================== Configuration ====================
-    MODEL_PATH = "~/VoxCPM1.5"  # Base model path
+    MODEL_PATH = "openbmb/VoxCPM2"  # Base model path
     LORA_PATH = "/path/to/lora_weights.ckpt"  # LoRA weights path, None means not loading
 
     LORA_R = 32  # LoRA rank
@@ -36,7 +36,7 @@ async def main():
     )
 
     print("Loading model with LoRA...")
-    server: AsyncVoxCPMServerPool = VoxCPM.from_pretrained(
+    server: AsyncVoxCPM2ServerPool = VoxCPM.from_pretrained(
         model=MODEL_PATH,
         max_num_batched_tokens=8192,
         max_num_seqs=16,
@@ -48,6 +48,8 @@ async def main():
     )
     await server.wait_for_ready()
     print("Ready!")
+    model_info = await server.get_model_info()
+    sample_rate = int(model_info["sample_rate"])
 
     # 2. Load LoRA weights
     if LORA_PATH:
@@ -68,12 +70,13 @@ async def main():
     end_time = time.time()
 
     # 4. Save
-    sf.write(OUTPUT_FILE, wav, 44100)
+    sf.write(OUTPUT_FILE, wav, sample_rate)
 
     time_used = end_time - start_time
-    wav_duration = wav.shape[0] / 44100
+    wav_duration = wav.shape[0] / sample_rate
     print(f"Output: {OUTPUT_FILE}")
-    print(f"Duration: {wav_duration:.2f}s, Time: {time_used:.2f}s, RTF: {time_used/wav_duration:.4f}")
+    print(f"Sample rate: {sample_rate}")
+    print(f"Duration: {wav_duration:.2f}s, Time: {time_used:.2f}s, RTF: {time_used / wav_duration:.4f}")
 
     await server.stop()
 
