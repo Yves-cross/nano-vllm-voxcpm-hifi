@@ -1,0 +1,28 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+
+# Local artifacts / large media
+*.wav
+*.mp3
+.coverage
+htmlcov
+
+# Python build outputs
+build
+dist
+*.egg-info
+
+# Editors / OS
+.DS_Store
+
+/deployment/Dockerfile
+
+/models
+*.wav
+*.mp3
+*.pt
