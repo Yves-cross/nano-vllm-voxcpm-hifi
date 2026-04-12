@@ -45,6 +45,30 @@ GENERATE_STREAM_BYTES_TOTAL = Counter(
     "nanovllm_generate_stream_bytes_total",
     "Total bytes streamed by /generate",
 )
+GENERATE_CONTEXT_RESOLVE_SECONDS = Histogram(
+    "nanovllm_generate_context_resolve_seconds",
+    "Time spent resolving prompt/reference context before generation",
+    labelnames=["route"],
+)
+GENERATE_FIRST_WAV_CHUNK_SECONDS = Histogram(
+    "nanovllm_generate_first_wav_chunk_seconds",
+    "Time from request start until first waveform chunk is available",
+    labelnames=["route"],
+)
+GENERATE_FIRST_MP3_CHUNK_SECONDS = Histogram(
+    "nanovllm_generate_first_mp3_chunk_seconds",
+    "Time from request start until first MP3 bytes are available",
+    labelnames=["route"],
+)
+GENERATE_TOTAL_SECONDS = Histogram(
+    "nanovllm_generate_total_seconds",
+    "End-to-end generation time by route",
+    labelnames=["route"],
+)
+ADD_REFERENCE_TOTAL_SECONDS = Histogram(
+    "nanovllm_add_reference_total_seconds",
+    "End-to-end latency of /add_reference",
+)
 
 AUDIO_ENCODE_FAILURES_TOTAL = Counter(
     "nanovllm_audio_encode_failures_total",

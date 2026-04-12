@@ -1,0 +1,18 @@
+[Unit]
+Description=Nano-vLLM HiFi Gradio Web UI
+After=network.target nanovllm-voxcpm.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/voxcpm2/app
+Environment=NANOVLLM_API_BASE_URL=http://127.0.0.1:8800
+ExecStart=/bin/bash -lc 'source /root/anaconda3/etc/profile.d/conda.sh && conda activate base && exec python /opt/nanovllm-voxcpm/tools/nanovllm_hifi_gradio.py --port 8805'
+Restart=always
+RestartSec=5
+TimeoutStartSec=600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -23,6 +23,30 @@ def float32_to_s16le_bytes(wav: np.ndarray) -> bytes:
     return wav_i16.tobytes(order="C")
 
 
+def encode_mp3_bytes(wav: np.ndarray, sample_rate: int, mp3: Mp3Config) -> bytes:
+    """Encode a full float32 mono waveform into a single MP3 byte payload."""
+    try:
+        import lameenc
+
+        enc = lameenc.Encoder()
+        enc.set_bit_rate(mp3.bitrate_kbps)
+        enc.set_in_sample_rate(sample_rate)
+        enc.set_channels(1)
+        enc.set_quality(mp3.quality)
+
+        pcm_bytes = float32_to_s16le_bytes(wav)
+        t0 = time.perf_counter()
+        out = enc.encode(pcm_bytes)
+        out += enc.flush()
+        AUDIO_ENCODE_SECONDS.observe(time.perf_counter() - t0)
+        if isinstance(out, (bytearray, memoryview)):
+            out = bytes(out)
+        return out or b""
+    except BaseException:
+        AUDIO_ENCODE_FAILURES_TOTAL.inc()
+        raise
+
+
 async def stream_mp3(
     *,
     request: _DisconnectableRequest,

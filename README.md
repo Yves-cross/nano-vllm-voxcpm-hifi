@@ -144,6 +144,143 @@ The VoxCPM2 server supports these conditioning inputs:
 
 See the public API in `nanovllm_voxcpm/models/voxcpm2/server.py` for details.
 
+
+## What is added in this branch
+
+This branch is no longer just a minimal async wrapper. It now includes a production-oriented FastAPI layer and a set of deployment / benchmarking helpers for real VoxCPM2 cloning use cases.
+
+### New HTTP capabilities
+
+The FastAPI layer now supports:
+
+- streaming generation
+  - `POST /generate`
+- non-streaming generation
+  - `POST /generate_blocking` (returns `audio/mpeg`)
+  - `POST /generate_blocking_wav` (returns `audio/wav`)
+- prompt caching
+  - `POST /add_prompt`
+  - `DELETE /prompts/{prompt_id}`
+- reference-audio caching
+  - `POST /add_reference`
+  - `DELETE /references/{reference_id}`
+- HiFi clone bundle caching
+  - `POST /add_hifi`
+  - `DELETE /hifi/{hifi_id}`
+
+`GenerateRequest` now supports all of the following conditioning paths:
+
+- zero-shot
+- `prompt_wav_* + prompt_text`
+- `prompt_latents_base64 + prompt_text`
+- `prompt_id`
+- `ref_audio_wav_*`
+- `ref_audio_latents_base64`
+- `ref_audio_id`
+- `hifi_id`
+
+### Web-aligned HiFi clone semantics
+
+The original VoxCPM2 Gradio UI's “Ultimate Cloning / 极致克隆” is **not** equivalent to a plain `prompt_id` test, and it is also **not** equivalent to a plain `ref_audio_id` test.
+
+The web UI effectively combines the same reference audio in two roles:
+
+- `reference_wav_path` → separate reference-audio condition
+- `prompt_wav_path + prompt_text` → continuation-style conditioning
+
+The FastAPI equivalent is therefore:
+
+```json
+{
+  "target_text": "...",
+  "prompt_wav_base64": "...",
+  "prompt_wav_format": "wav",
+  "prompt_text": "...",
+  "ref_audio_wav_base64": "...",
+  "ref_audio_wav_format": "wav"
+}
+```
+
+To make this cheaper and reusable, this branch adds `hifi_id`, which internally binds one `prompt_id` plus one `reference_id` into a single reusable cache handle.
+
+### Included helper scripts
+
+- `tools/bench_latent_concurrency.py`
+- `tools/bench_prompt_vs_ref_hot.py`
+- `tools/bench_prompt_family_hot.py`
+- `tools/bench_hifi_concurrency.py`
+- `tools/bench_hifi_blocking_concurrency.py`
+- `tools/post_start_warmup.sh`
+- `tools/nanovllm_hifi_gradio.py`
+- `tools/nanovllm-hifi-gradio.service.example`
+
+### Deployment / test notes from the RTX 4090 host (2026-04-12)
+
+Host used during validation:
+
+- OS: Ubuntu 24.04
+- GPU: NVIDIA GeForce RTX 4090
+- Driver: `590.48.01`
+- CUDA reported by `nvidia-smi`: `13.1`
+
+#### Main deployment pitfalls encountered
+
+1. **`uv sync --frozen` + build isolation was not enough for `flash-attn` on this host**  
+   The reliable path here was installing the repo editable without build isolation and then compiling/installing `flash-attn` explicitly.
+
+2. **Original VoxCPM2 / Gradio side had a torch / torchvision mismatch**  
+   This was fixed by moving `torchvision` to a version matching the installed CUDA/torch line.
+
+3. **The original VoxCPM2 environment needed a newer NVIDIA driver**  
+   `nvidia-driver-590` was required to stabilize the CUDA 13 line used by that side.
+
+4. **Warmup inside FastAPI lifespan was unsafe**  
+   Doing generation directly inside startup triggered `scheduler.py: assert scheduled_seqs`. The safe solution was a post-start warmup script executed after `/health` became ready.
+
+5. **`prompt_id` and `ref_audio_id` should not be compared as if they were the same task**  
+   `prompt_id` is continuation-style conditioning. `ref_audio_id` is a separate reference-audio condition. The real web “HiFi / 极致克隆” path is the combined route described above.
+
+#### Latest stable configuration used for HiFi testing
+
+- `NANOVLLM_SERVERPOOL_ENFORCE_EAGER=false`
+- `NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS=10`
+- `NANOVLLM_QUEUE_COALESCE_MS=5`
+- FastAPI default `cfg_value=2.0`
+- HiFi post-start warmup enabled via `tools/post_start_warmup.sh`
+
+#### Latest measured HiFi numbers (strict warm procedure)
+
+Warm procedure used before concurrency tests:
+
+1. service warmup
+2. `add_hifi`
+3. sleep 3s
+4. warm the same `hifi_id` twice
+5. sleep 5s
+6. run 5-concurrency test
+7. sleep 5s
+8. run 10-concurrency test
+
+With `NANOVLLM_QUEUE_COALESCE_MS=5`:
+
+| scenario | avg TTFB (s) | avg total (s) | P95 total (s) |
+|---|---:|---:|---:|
+| HiFi warm single request | 0.185~0.220 | 0.696~0.722 | - |
+| HiFi streaming, 5 concurrency | 0.246 | 1.078 | 1.158 |
+| HiFi streaming, 10 concurrency | 0.401 | 1.582 | 1.682 |
+| HiFi blocking MP3, 5 concurrency | - | 0.998 | 1.091 |
+| HiFi blocking MP3, 10 concurrency | - | 1.296 | 1.426 |
+
+#### Queue coalescing comparison under the same strict HiFi method
+
+| `NANOVLLM_QUEUE_COALESCE_MS` | 5-concurrency avg total (s) | 10-concurrency avg total (s) | verdict |
+|---:|---:|---:|---|
+| 2 | 1.430 | 2.013 | slower than 5 |
+| 5 | 1.078 | 1.582 | best overall |
+| 10 | 1.131 | 2.421 | helps 5-conc a bit, hurts 10-conc badly |
+
+Current recommendation for HiFi on this host: **`NANOVLLM_QUEUE_COALESCE_MS=5`**.
+
 ## FastAPI demo
 
 The HTTP server demo is documented separately to keep this README focused:

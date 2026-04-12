@@ -59,6 +59,9 @@ on top of this base engine:
 """
 
 import atexit
+import logging
+import os
+import time
 import torch.multiprocessing as mp
 
 from nanovllm_voxcpm.config import Config
@@ -67,6 +70,9 @@ from nanovllm_voxcpm.engine.scheduler import Scheduler
 from nanovllm_voxcpm.engine.model_runner import RunnerTask, BaseModelRunner
 import socket
 import torch
+
+logger = logging.getLogger("uvicorn.error")
+LLMENGINE_TRACE_ENABLED = os.environ.get("NANOVLLM_DEEP_TRACE", "1").strip().lower() not in ("0", "false", "off", "no")
 
 
 def get_distributed_port():
@@ -131,16 +137,34 @@ class LLMEngineBase:
         self.scheduler.cancel(seq_id)
 
     def step(self):
+        t0 = time.perf_counter()
         seqs, is_prefill = self.scheduler.schedule()
+        t_schedule = time.perf_counter()
         runner_tasks = [self.preprocess_seq(seq, is_prefill) for seq in seqs]
+        t_preprocess = time.perf_counter()
         outputs = self.model_runner.call("run", runner_tasks, is_prefill)
+        t_runner = time.perf_counter()
 
         for seq, output in zip(seqs, outputs):
             self.postprocess_seq(seq, output, is_prefill)
+        t_postprocess = time.perf_counter()
 
+        finished = 0
         for seq in seqs:
             if seq.stoped:
+                finished += 1
                 self.scheduler.finish(seq)
+        t_finish = time.perf_counter()
+
+        if LLMENGINE_TRACE_ENABLED:
+            msg = (
+                f"llm_engine_step_trace is_prefill={int(is_prefill)} seqs={len(seqs)} "
+                f"schedule={t_schedule - t0:.4f} preprocess={t_preprocess - t_schedule:.4f} "
+                f"runner={t_runner - t_preprocess:.4f} postprocess={t_postprocess - t_runner:.4f} "
+                f"finish={t_finish - t_postprocess:.4f} total={t_finish - t0:.4f} finished={finished}"
+            )
+            logger.info(msg)
+            print(msg, flush=True)
 
         return seqs
 

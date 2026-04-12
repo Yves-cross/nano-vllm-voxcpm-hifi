@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
@@ -18,6 +20,7 @@ from app.services.lora_resolver import (
 )
 
 SERVER_FACTORY = VoxCPM.from_pretrained
+logger = logging.getLogger("uvicorn.error")
 
 
 def build_lifespan(cfg: ServiceConfig):
@@ -40,6 +43,7 @@ def build_lifespan(cfg: ServiceConfig):
 
         server = SERVER_FACTORY(
             model=cfg.model_path,
+            inference_timesteps=cfg.server_pool.inference_timesteps,
             max_num_batched_tokens=cfg.server_pool.max_num_batched_tokens,
             max_num_seqs=cfg.server_pool.max_num_seqs,
             max_model_len=cfg.server_pool.max_model_len,
@@ -57,6 +61,27 @@ def build_lifespan(cfg: ServiceConfig):
             "loaded": False,
         }
 
+        warmup_task: asyncio.Task | None = None
+
+        async def _run_async_warmup() -> None:
+            try:
+                if cfg.warmup.delay_sec > 0:
+                    await asyncio.sleep(cfg.warmup.delay_sec)
+                t0 = time.perf_counter()
+                async for _chunk in server.generate(
+                    target_text=cfg.warmup.text,
+                    max_generate_length=cfg.warmup.max_generate_length,
+                ):
+                    logger.info("async_warmup_trace status=first_chunk_ok delay=%.3f elapsed=%.4f", cfg.warmup.delay_sec, time.perf_counter() - t0)
+                    break
+                else:
+                    logger.info("async_warmup_trace status=no_chunk delay=%.3f elapsed=%.4f", cfg.warmup.delay_sec, time.perf_counter() - t0)
+            except asyncio.CancelledError:
+                logger.info("async_warmup_trace status=cancelled")
+                raise
+            except Exception as e:
+                logger.warning("async_warmup_trace status=failed delay=%.3f err=%s", cfg.warmup.delay_sec, e)
+
         try:
             await server.wait_for_ready()
 
@@ -70,8 +95,18 @@ def build_lifespan(cfg: ServiceConfig):
                 app.state.lora.update({"loaded": True})
 
             app.state.ready = True
+            if cfg.warmup.enabled:
+                warmup_task = asyncio.create_task(_run_async_warmup(), name="nanovllm-async-warmup")
+                app.state.warmup_task = warmup_task
+                logger.info("async_warmup_trace status=scheduled delay=%.3f", cfg.warmup.delay_sec)
             yield
         finally:
+            if warmup_task is not None and not warmup_task.done():
+                warmup_task.cancel()
+                try:
+                    await warmup_task
+                except asyncio.CancelledError:
+                    pass
             app.state.ready = False
             await server.stop()
             if getattr(app.state, "server", None) is server:

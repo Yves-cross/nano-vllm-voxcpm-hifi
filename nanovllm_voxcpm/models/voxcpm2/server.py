@@ -476,6 +476,7 @@ class AsyncVoxCPM2ServerPool:
         ]
         self.servers_load = np.zeros(len(self.servers), dtype=np.int32)
         self._prompt_pool = {}
+        self._reference_pool = {}
 
     async def wait_for_ready(self):
         await asyncio.gather(*[server.wait_for_ready() for server in self.servers])
@@ -501,6 +502,15 @@ class AsyncVoxCPM2ServerPool:
     async def remove_prompt(self, prompt_id: str):
         del self._prompt_pool[prompt_id]
 
+    async def add_reference(self, wav: bytes, wav_format: str):
+        reference_id = gen_uuid()
+        reference_latents = await self.encode_latents(wav, wav_format)
+        self._reference_pool[reference_id] = {"latents": reference_latents}
+        return reference_id
+
+    async def remove_reference(self, reference_id: str):
+        del self._reference_pool[reference_id]
+
     async def generate(
         self,
         target_text: str,
@@ -511,6 +521,7 @@ class AsyncVoxCPM2ServerPool:
         temperature: float = 1.0,
         cfg_value: float = 2.0,
         ref_audio_latents: bytes | None = None,
+        ref_audio_id: str | None = None,
     ):
         if prompt_id is not None:
             if prompt_id not in self._prompt_pool:
@@ -522,6 +533,14 @@ class AsyncVoxCPM2ServerPool:
             prompt_info = self._prompt_pool[prompt_id]
             prompt_latents = prompt_info["latents"]
             prompt_text = prompt_info["text"]
+
+        if ref_audio_id is not None:
+            if ref_audio_id not in self._reference_pool:
+                raise ValueError(f"Reference with id {ref_audio_id} not found")
+            if ref_audio_latents is not None:
+                raise ValueError("Reference latents and reference id cannot be provided at the same time")
+            ref_audio_info = self._reference_pool[ref_audio_id]
+            ref_audio_latents = ref_audio_info["latents"]
 
         min_load_server_idx = np.argmin(self.servers_load)
         self.servers_load[min_load_server_idx] += 1
@@ -607,6 +626,14 @@ class SyncVoxCPM2ServerPool:
         assert self.loop is not None
         return self.loop.run_until_complete(self.server_pool.remove_prompt(prompt_id))
 
+    def add_reference(self, wav: bytes, wav_format: str):
+        assert self.loop is not None
+        return self.loop.run_until_complete(self.server_pool.add_reference(wav, wav_format))
+
+    def remove_reference(self, reference_id: str):
+        assert self.loop is not None
+        return self.loop.run_until_complete(self.server_pool.remove_reference(reference_id))
+
     def generate(
         self,
         target_text: str,
@@ -617,6 +644,7 @@ class SyncVoxCPM2ServerPool:
         temperature: float = 1.0,
         cfg_value: float = 2.0,
         ref_audio_latents: bytes | None = None,
+        ref_audio_id: str | None = None,
     ):
         assert self.loop is not None
         async_gen = self.server_pool.generate(
@@ -628,6 +656,7 @@ class SyncVoxCPM2ServerPool:
             temperature,
             cfg_value,
             ref_audio_latents,
+            ref_audio_id,
         )
         try:
             while True:

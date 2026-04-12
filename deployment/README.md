@@ -5,9 +5,10 @@ This folder contains a production-oriented FastAPI wrapper around
 
 Key properties:
 
-- Stateless API (no `prompt_id`, no prompt pool endpoints)
+- Stateful cache endpoints for `prompt_id`, `reference_id`, and `hifi_id`
 - No runtime LoRA management endpoints
 - `/generate` streams MP3 (`audio/mpeg`) encoded server-side via `lameenc`
+- `/generate_blocking` and `/generate_blocking_wav` provide non-streaming responses
 
 ## Install (uv)
 
@@ -42,6 +43,15 @@ Environment variables:
   - `NANOVLLM_CACHE_DIR` (default `~/.cache/nanovllm`)
 
 - Server pool startup (read at startup):
+- Queue / warmup / startup behavior (read at startup):
+  - `NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS` (int, default `10`)
+  - `NANOVLLM_QUEUE_COALESCE_MS` (int, default host-tuned; current recommended value for HiFi on RTX 4090 is `5`)
+  - `NANOVLLM_WARMUP_MODE` (`zero` or `hifi`)
+  - `NANOVLLM_WARMUP_TEXT`
+  - `NANOVLLM_WARMUP_MAX_GENERATE_LENGTH`
+  - `NANOVLLM_HIFI_WARMUP_WAV_PATH`
+  - `NANOVLLM_HIFI_WARMUP_PROMPT_TEXT`
+  - `NANOVLLM_HIFI_WARMUP_TARGET_TEXT`
   - `NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS` (int, default `8192`)
   - `NANOVLLM_SERVERPOOL_MAX_NUM_SEQS` (int, default `16`)
   - `NANOVLLM_SERVERPOOL_MAX_MODEL_LEN` (int, default `4096`)
@@ -141,7 +151,7 @@ Returns model metadata from core (`sample_rate/channels/feat_dim/...`) plus MP3 
 
 `GET /metrics`
 
-Prometheus metrics.
+Prometheus metrics, including route-level TTFB / total / MP3 encode histograms added during the RTX 4090 tuning work.
 
 ### Encode prompt wav to latents
 
@@ -160,6 +170,17 @@ Response body (JSON):
 - `sample_rate`: output sample rate (from the model)
 - `channels`: `1`
 
+### Cache prompt / reference / hifi bundles
+
+- `POST /add_prompt` → returns `prompt_id`
+- `DELETE /prompts/{prompt_id}`
+- `POST /add_reference` → returns `reference_id`
+- `DELETE /references/{reference_id}`
+- `POST /add_hifi` → returns `hifi_id`, `prompt_id`, and `reference_id`
+- `DELETE /hifi/{hifi_id}`
+
+`hifi_id` is the web-aligned “Ultimate Cloning / 极致克隆” cache handle. Internally it bundles one prompt cache plus one reference-audio cache built from the same uploaded audio and prompt text.
+
 ### Generate (streaming MP3)
 
 `POST /generate`
@@ -170,12 +191,19 @@ Request body (JSON):
 - Prompt (optional, mutually exclusive):
   - wav prompt: `prompt_wav_base64` + `prompt_wav_format` + `prompt_text`
   - latents prompt: `prompt_latents_base64` + `prompt_text`
+  - cached prompt: `prompt_id`
+  - cached HiFi bundle: `hifi_id`
   - zero-shot: omit all prompt fields
 - Reference audio (optional, mutually exclusive):
   - wav reference: `ref_audio_wav_base64` + `ref_audio_wav_format`
   - latents reference: `ref_audio_latents_base64`
+  - cached reference: `ref_audio_id`
+- Generation args:
+  - `max_generate_length`
+  - `temperature`
+  - `cfg_value`
 
-`ref_audio_*` is independent from the prompt fields, so you can combine reference audio with either zero-shot or prompted generation.
+For web-aligned HiFi cloning, use the same uploaded wav for both prompt and reference roles, plus `prompt_text`, or pre-cache that bundle with `hifi_id`.
 
 Response:
 
@@ -184,3 +212,19 @@ Response:
 - headers:
   - `X-Audio-Sample-Rate`
   - `X-Audio-Channels`
+
+### Generate (non-streaming)
+
+- `POST /generate_blocking` → returns complete `audio/mpeg`
+- `POST /generate_blocking_wav` → returns complete `audio/wav`
+
+Both endpoints accept the same request body shape as `/generate`, including `hifi_id`.
+
+### Frontend helper
+
+This repo now also includes a Gradio frontend example for the FastAPI HiFi route:
+
+- `tools/nanovllm_hifi_gradio.py`
+- `tools/nanovllm-hifi-gradio.service.example`
+
+This page is intended to mimic the original VoxCPM2 “Ultimate Cloning / 极致克隆” workflow while calling Nano-vLLM FastAPI under the hood.

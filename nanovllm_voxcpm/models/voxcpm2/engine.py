@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import logging
+import os
 
 import numpy as np
 import torch
@@ -10,6 +12,9 @@ from nanovllm_voxcpm.engine.sequence import Sequence
 from nanovllm_voxcpm.models.voxcpm2.config import VoxCPM2Config
 from nanovllm_voxcpm.models.voxcpm2.runner import RunnerTask, VoxCPM2Payload, VoxCPM2Runner
 from nanovllm_voxcpm.models.voxcpm2.utils import mask_multichar_chinese_tokens
+
+logger = logging.getLogger("uvicorn.error")
+SEQ_TRACE_ENABLED = os.environ.get("NANOVLLM_DEEP_TRACE", "1").strip().lower() not in ("0", "false", "off", "no")
 
 
 @dataclass
@@ -44,34 +49,52 @@ class VoxCPM2Engine(LLMEngineBase):
                 feats = np.concatenate(seq.custom_payload.feats, axis=0)
                 seq.custom_payload.feats = [feats]
 
+            payload = VoxCPM2Payload(
+                text_tokens=np.array(seq.custom_payload.text_tokens[seq.num_cached_tokens :], dtype=np.int64),
+                feats=seq.custom_payload.feats[-1][seq.num_cached_tokens :],
+                feat_masks=np.array(seq.custom_payload.feat_masks[seq.num_cached_tokens :], dtype=np.bool_),
+                temperature=seq.custom_payload.temperature,
+                cfg_value=seq.custom_payload.cfg_value,
+                padding_decode=seq.custom_payload.decode_pad,
+            )
+            if SEQ_TRACE_ENABLED:
+                msg = (
+                    f"voxcpm2_preprocess_trace is_prefill=1 seq_id={seq.seq_id} seq_len={len(seq)} cached={seq.num_cached_tokens} "
+                    f"payload_tokens={payload.text_tokens.shape[0]} payload_feat_rows={payload.feats.shape[0]} "
+                    f"payload_feat_true={int(payload.feat_masks.sum())}"
+                )
+                logger.info(msg)
+                print(msg, flush=True)
             return RunnerTask(
                 seq.block_table,
                 len(seq),
                 seq.num_cached_tokens,
                 seq.block_size,
-                VoxCPM2Payload(
-                    text_tokens=np.array(seq.custom_payload.text_tokens[seq.num_cached_tokens :], dtype=np.int64),
-                    feats=seq.custom_payload.feats[-1][seq.num_cached_tokens :],
-                    feat_masks=np.array(seq.custom_payload.feat_masks[seq.num_cached_tokens :], dtype=np.bool_),
-                    temperature=seq.custom_payload.temperature,
-                    cfg_value=seq.custom_payload.cfg_value,
-                    padding_decode=seq.custom_payload.decode_pad,
-                ),
+                payload,
             )
 
+        payload = VoxCPM2Payload(
+            text_tokens=np.array(seq.custom_payload.text_tokens[-1:], dtype=np.int64),
+            feats=seq.custom_payload.feats[-1][-1:],
+            feat_masks=np.array(seq.custom_payload.feat_masks[-1:], dtype=np.bool_),
+            temperature=seq.custom_payload.temperature,
+            cfg_value=seq.custom_payload.cfg_value,
+            padding_decode=seq.custom_payload.decode_pad,
+        )
+        if SEQ_TRACE_ENABLED:
+            msg = (
+                f"voxcpm2_preprocess_trace is_prefill=0 seq_id={seq.seq_id} seq_len={len(seq)} cached={len(seq)-1} "
+                f"payload_tokens={payload.text_tokens.shape[0]} payload_feat_rows={payload.feats.shape[0]} "
+                f"payload_feat_true={int(payload.feat_masks.sum())}"
+            )
+            logger.info(msg)
+            print(msg, flush=True)
         return RunnerTask(
             seq.block_table,
             len(seq),
             len(seq) - 1,
             seq.block_size,
-            VoxCPM2Payload(
-                text_tokens=np.array(seq.custom_payload.text_tokens[-1:], dtype=np.int64),
-                feats=seq.custom_payload.feats[-1][-1:],
-                feat_masks=np.array(seq.custom_payload.feat_masks[-1:], dtype=np.bool_),
-                temperature=seq.custom_payload.temperature,
-                cfg_value=seq.custom_payload.cfg_value,
-                padding_decode=seq.custom_payload.decode_pad,
-            ),
+            payload,
         )
 
     def postprocess_seq(self, seq: Sequence[VoxCPM2SeqPayload], outputs: dict, is_prefill: bool):
@@ -165,6 +188,19 @@ class VoxCPM2Engine(LLMEngineBase):
                 f"> max_model_len({self.max_model_len}). "
                 "Reduce input length or max_generate_length, or increase max_model_len."
             )
+
+        if SEQ_TRACE_ENABLED:
+            text_token_len = len(text_tokens)
+            feat_mask_true = int(sum(1 for x in feat_masks if x))
+            prompt_latent_patches = 0 if prompt_latents is None else int(prompt_latents.shape[0] // self.patch_size)
+            ref_latent_patches = 0 if ref_audio_latents is None else int(ref_audio_latents.shape[0] // self.patch_size)
+            msg = (
+                f"voxcpm2_add_request_trace seq_id={seq_id} target_text_len={len(target_text)} prompt_text_len={len(prompt_text)} "
+                f"text_tokens={text_token_len} feat_true={feat_mask_true} prompt_patches={prompt_latent_patches} "
+                f"ref_patches={ref_latent_patches} hash_tokens={len(hash_tokens)} max_generate_length={max_generate_length}"
+            )
+            logger.info(msg)
+            print(msg, flush=True)
 
         seq = Sequence(
             seq_id,

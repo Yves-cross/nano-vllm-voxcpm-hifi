@@ -72,6 +72,7 @@ class LoRAStartupConfig:
 
 @dataclass(frozen=True)
 class ServerPoolStartupConfig:
+    inference_timesteps: int
     max_num_batched_tokens: int
     max_num_seqs: int
     max_model_len: int
@@ -81,11 +82,20 @@ class ServerPoolStartupConfig:
 
 
 @dataclass(frozen=True)
+class WarmupConfig:
+    enabled: bool
+    text: str
+    max_generate_length: int
+    delay_sec: float
+
+
+@dataclass(frozen=True)
 class ServiceConfig:
     model_path: str
     mp3: Mp3Config
     lora: LoRAStartupConfig
     server_pool: ServerPoolStartupConfig
+    warmup: WarmupConfig
 
 
 def load_config() -> ServiceConfig:
@@ -107,6 +117,7 @@ def load_config() -> ServiceConfig:
         raise RuntimeError("NANOVLLM_LORA_ID is required when NANOVLLM_LORA_URI is set")
 
     # Server pool startup config (read at startup).
+    pool_inference_timesteps = _get_int_env("NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS", 10)
     pool_max_num_batched_tokens = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS", 8192)
     pool_max_num_seqs = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_SEQS", 16)
     pool_max_model_len = _get_int_env("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN", 4096)
@@ -114,6 +125,8 @@ def load_config() -> ServiceConfig:
     pool_enforce_eager = _get_bool_env("NANOVLLM_SERVERPOOL_ENFORCE_EAGER", False)
     pool_devices = _get_int_list_env("NANOVLLM_SERVERPOOL_DEVICES", (0,))
 
+    if pool_inference_timesteps <= 0:
+        raise RuntimeError("NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS must be > 0")
     if pool_max_num_batched_tokens <= 0:
         raise RuntimeError("NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS must be > 0")
     if pool_max_num_seqs <= 0:
@@ -127,16 +140,32 @@ def load_config() -> ServiceConfig:
     if any(d < 0 for d in pool_devices):
         raise RuntimeError("NANOVLLM_SERVERPOOL_DEVICES entries must be >= 0")
 
+    warmup_enabled = _get_bool_env("NANOVLLM_WARMUP_ENABLED", True)
+    warmup_text = os.environ.get("NANOVLLM_WARMUP_TEXT", "你好")
+    warmup_max_generate_length = _get_int_env("NANOVLLM_WARMUP_MAX_GENERATE_LENGTH", 128)
+    warmup_delay_sec = _get_float_env("NANOVLLM_WARMUP_DELAY_SEC", 1.0)
+    if warmup_max_generate_length <= 0:
+        raise RuntimeError("NANOVLLM_WARMUP_MAX_GENERATE_LENGTH must be > 0")
+    if warmup_delay_sec < 0:
+        raise RuntimeError("NANOVLLM_WARMUP_DELAY_SEC must be >= 0")
+
     return ServiceConfig(
         model_path=model_path,
         mp3=Mp3Config(bitrate_kbps=mp3_bitrate_kbps, quality=mp3_quality),
         lora=LoRAStartupConfig(uri=lora_uri, lora_id=lora_id, sha256=lora_sha256, cache_dir=cache_dir),
         server_pool=ServerPoolStartupConfig(
+            inference_timesteps=pool_inference_timesteps,
             max_num_batched_tokens=pool_max_num_batched_tokens,
             max_num_seqs=pool_max_num_seqs,
             max_model_len=pool_max_model_len,
             gpu_memory_utilization=pool_gpu_memory_utilization,
             enforce_eager=pool_enforce_eager,
             devices=pool_devices,
+        ),
+        warmup=WarmupConfig(
+            enabled=warmup_enabled,
+            text=warmup_text,
+            max_generate_length=warmup_max_generate_length,
+            delay_sec=warmup_delay_sec,
         ),
     )

@@ -1,4 +1,6 @@
+import logging
 import os
+import time
 from dataclasses import dataclass
 from multiprocessing.synchronize import Event
 
@@ -11,6 +13,9 @@ from nanovllm_voxcpm.layers.audio_vae_v2 import AudioVAEV2
 from nanovllm_voxcpm.models.voxcpm2.config import VoxCPM2Config
 from nanovllm_voxcpm.models.voxcpm2.model import VoxCPM2Model
 from nanovllm_voxcpm.utils.loader import load_model
+
+logger = logging.getLogger("uvicorn.error")
+RUNNER_TRACE_ENABLED = os.environ.get("NANOVLLM_DEEP_TRACE", "1").strip().lower() not in ("0", "false", "off", "no")
 
 
 @dataclass
@@ -81,7 +86,9 @@ class VoxCPM2Runner(BaseModelRunner):
         )
 
     def run(self, seqs: list[RunnerTask[VoxCPM2Payload]], is_prefill: bool):
+        t0 = time.perf_counter()
         positions = self.prepare_prefill_context(seqs) if is_prefill else self.prepare_decode_context(seqs)
+        t_context = time.perf_counter()
         inputs = {"positions": positions}
 
         text_tokens = []
@@ -108,8 +115,10 @@ class VoxCPM2Runner(BaseModelRunner):
         inputs["cfg_value"] = (
             torch.tensor(cfg_values, dtype=torch.float32, pin_memory=True).cuda(non_blocking=True).to(self.dtype)
         )
+        t_inputs = time.perf_counter()
 
         outputs = self.run_model(inputs, is_prefill)
+        t_run_model = time.perf_counter()
         latents = outputs["latents"]
 
         pad_lengths = [
@@ -127,6 +136,7 @@ class VoxCPM2Runner(BaseModelRunner):
             vae_decoder_inputs[i, pad_len : pad_len + self.patch_size] = latents[i].to(torch.float32)
 
         vae_decoder_outputs = self.vae.decode(vae_decoder_inputs.permute(0, 2, 1))[:, 0, :].cpu().numpy()
+        t_vae_decode = time.perf_counter()
         stop_flag = outputs["stop_flag"].cpu().tolist()
         ret_waveforms = []
         for i, pad_len in enumerate(pad_lengths):
@@ -138,6 +148,16 @@ class VoxCPM2Runner(BaseModelRunner):
             )
 
         np_latents = latents.to(torch.float32).cpu().numpy()
+        t_end = time.perf_counter()
+        if RUNNER_TRACE_ENABLED:
+            msg = (
+                f"voxcpm2_runner_trace is_prefill={int(is_prefill)} seqs={len(seqs)} "
+                f"prepare_context={t_context - t0:.4f} build_inputs={t_inputs - t_context:.4f} "
+                f"run_model={t_run_model - t_inputs:.4f} vae_decode={t_vae_decode - t_run_model:.4f} "
+                f"tail={t_end - t_vae_decode:.4f} total={t_end - t0:.4f}"
+            )
+            logger.info(msg)
+            print(msg, flush=True)
         return [
             {"latents": np_latents[i], "stop_flag": stop_flag[i], "waveforms": ret_waveforms[i]}
             for i in range(len(seqs))
