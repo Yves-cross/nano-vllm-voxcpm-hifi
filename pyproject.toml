@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools-scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nano-vllm-voxcpm"
+dynamic = ["version"]
+authors = [{ name = "Guoyang Zeng" }]
+classifiers = ["License :: OSI Approved :: MIT License"]
+readme = "README.md"
+description = "VoxCPM inference engine based on Nano-vLLM"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "torch>=2.5.0,!=2.6.*",
+    "triton>=3.0.0",
+    "transformers>=4.51.0",
+    "xxhash",
+    "torchaudio",
+    "tqdm",
+    "numpy",
+    "librosa",
+    "pydantic",
+    "flash-attn",
+    "soundfile>=0.13.1",
+    "torchcodec",
+]
+
+[project.urls]
+Homepage="https://github.com/a710128/nanovllm-voxcpm"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools_scm]
+# Derive the package version from git tags.
+# - Tags are currently prefixed with "v" (e.g. v1.0.0rc3); strip the prefix.
+# - Use post-release scheme for commits after a tag, and keep local version info.
+tag_regex = "^(?:v)?(?P<version>.*)$"
+version_scheme = "post-release"
+local_scheme = "node-and-date"
+write_to = "nanovllm_voxcpm/_version.py"
+fallback_version = "0.0.0"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nanovllm_voxcpm*"]
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["tests", "deployment/tests"]
+
+[tool.mypy]
+python_version = "3.10"
+
+# Keep CI usable by avoiding third-party stub churn and excluding
+# non-library entrypoints/tests from typechecking.
+ignore_missing_imports = true
+no_implicit_optional = false
+exclude = "^(tests/|deployment/tests/|benchmark/|example.*\\.py$)"
+
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "nanovllm_voxcpm.layers.*",
+    "nanovllm_voxcpm.models.voxcpm.*",
+    "nanovllm_voxcpm.models.voxcpm2.*",
+]
+ignore_errors = true
+
+[tool.uv.extra-build-dependencies]
+flash-attn = [
+    { requirement = "torch", match-runtime = true },
+    "setuptools",
+    "wheel",
+    "psutil",
+    "packaging",
+    "ninja",
+]
+
+[tool.uv.workspace]
+members = ["deployment"]
+
+[dependency-groups]
+dev = [
+    "black==26.3.1",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.14",
+]

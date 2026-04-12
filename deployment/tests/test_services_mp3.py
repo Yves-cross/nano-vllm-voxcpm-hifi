@@ -1,0 +1,156 @@
+import asyncio
+import sys
+from pathlib import Path
+
+import pytest
+
+fastapi = pytest.importorskip("fastapi")
+pytest.importorskip("starlette")
+pytest.importorskip("lameenc")
+
+import numpy as np
+
+DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
+if str(DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPLOYMENT_DIR))
+
+
+class _DummyHistogram:
+    def __init__(self):
+        self.observations: list[float] = []
+
+    def observe(self, v: float) -> None:
+        self.observations.append(float(v))
+
+
+class _DummyCounter:
+    def __init__(self):
+        self.count = 0
+
+    def inc(self) -> None:
+        self.count += 1
+
+
+class _FakeRequest:
+    def __init__(self, disconnect_after_checks: int | None = None):
+        self._checks = 0
+        self._disconnect_after = disconnect_after_checks
+
+    async def is_disconnected(self) -> bool:
+        self._checks += 1
+        if self._disconnect_after is None:
+            return False
+        return self._checks > self._disconnect_after
+
+
+async def _agen(chunks: list[np.ndarray]):
+    for c in chunks:
+        yield c
+
+
+def _looks_like_mp3(data: bytes) -> bool:
+    # Some encoders may emit an ID3 header; others start directly with MPEG frames.
+    if data.startswith(b"ID3"):
+        return True
+    for i in range(len(data) - 1):
+        b0 = data[i]
+        b1 = data[i + 1]
+        if b0 == 0xFF and (b1 & 0xE0) == 0xE0:
+            return True
+    return False
+
+
+def test_float32_to_s16le_bytes_clips_and_converts():
+    from app.services.mp3 import float32_to_s16le_bytes
+
+    wav = np.array([-2.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0], dtype=np.float32)
+    b = float32_to_s16le_bytes(wav)
+    arr = np.frombuffer(b, dtype=np.int16)
+    assert arr.tolist() == [-32767, -32767, -16383, 0, 16383, 32767, 32767]
+
+
+def test_stream_mp3_happy_path_encodes_and_flushes(monkeypatch):
+    from app.core.config import Mp3Config
+    import app.services.mp3 as mp3
+
+    dummy_hist = _DummyHistogram()
+    dummy_ctr = _DummyCounter()
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_SECONDS", dummy_hist)
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_FAILURES_TOTAL", dummy_ctr)
+
+    # Ensure enough PCM data for a real MP3 encoder to output frames.
+    chunks = [
+        np.zeros((16000,), dtype=np.float32),
+        np.ones((16000,), dtype=np.float32) * 0.25,
+    ]
+
+    async def run() -> bytes:
+        out = []
+        async for b in mp3.stream_mp3(
+            request=_FakeRequest(),
+            wav_chunks=_agen(chunks),
+            sample_rate=16000,
+            mp3=Mp3Config(bitrate_kbps=192, quality=2),
+        ):
+            out.append(b)
+        return b"".join(out)
+
+    data = asyncio.run(run())
+    assert data
+    assert _looks_like_mp3(data)
+    assert dummy_ctr.count == 0
+    assert dummy_hist.observations  # observed per chunk
+
+
+def test_stream_mp3_stops_on_disconnect(monkeypatch):
+    from app.core.config import Mp3Config
+    import app.services.mp3 as mp3
+
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_SECONDS", _DummyHistogram())
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_FAILURES_TOTAL", _DummyCounter())
+
+    chunks = [np.zeros((8000,), dtype=np.float32) for _ in range(4)]
+
+    async def run() -> bytes:
+        out: list[bytes] = []
+        async for b in mp3.stream_mp3(
+            request=_FakeRequest(disconnect_after_checks=0),
+            wav_chunks=_agen(chunks),
+            sample_rate=16000,
+            mp3=Mp3Config(bitrate_kbps=128, quality=2),
+        ):
+            out.append(b)
+        return b"".join(out)
+
+    data = asyncio.run(asyncio.wait_for(run(), timeout=2.0))
+    # Disconnect can happen before any PCM is enqueued; we just require termination.
+    assert data == b"" or _looks_like_mp3(data)
+
+
+def test_stream_mp3_raises_if_pcm_conversion_fails(monkeypatch):
+    from app.core.config import Mp3Config
+    import app.services.mp3 as mp3
+
+    dummy_ctr = _DummyCounter()
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_SECONDS", _DummyHistogram())
+    monkeypatch.setattr(mp3, "AUDIO_ENCODE_FAILURES_TOTAL", dummy_ctr)
+
+    def boom(_: np.ndarray) -> bytes:
+        raise ValueError("boom")
+
+    monkeypatch.setattr(mp3, "float32_to_s16le_bytes", boom)
+
+    chunks = [np.zeros((10,), dtype=np.float32)]
+
+    async def run() -> None:
+        async for _ in mp3.stream_mp3(
+            request=_FakeRequest(),
+            wav_chunks=_agen(chunks),
+            sample_rate=16000,
+            mp3=Mp3Config(bitrate_kbps=128, quality=2),
+        ):
+            pass
+
+    with pytest.raises(RuntimeError, match="MP3 encoder failed"):
+        asyncio.run(run())
+    assert dummy_ctr.count == 1
