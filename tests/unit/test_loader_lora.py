@@ -22,7 +22,9 @@ def _ensure_safetensors_stub(monkeypatch):
     safetensors_torch = types.ModuleType("safetensors.torch")
 
     def load_file(*args, **kwargs):  # pragma: no cover
-        raise RuntimeError("safetensors.torch.load_file is not available in this test stub")
+        raise RuntimeError(
+            "safetensors.torch.load_file is not available in this test stub"
+        )
 
     safetensors_torch.load_file = load_file
 

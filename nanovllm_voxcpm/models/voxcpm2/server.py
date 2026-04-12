@@ -70,7 +70,9 @@ class VoxCPM2ServerImpl:
         devices: List[int] = [],
         lora_config: Optional[LoRAConfig] = None,
     ):
-        model_config = VoxCPM2Config.model_validate_json(open(os.path.join(model_path, "config.json")).read())
+        model_config = VoxCPM2Config.model_validate_json(
+            open(os.path.join(model_path, "config.json")).read()
+        )
         model_config.inference_timesteps = inference_timesteps
         self.lora_config = lora_config
         self.model_path = model_path
@@ -106,7 +108,9 @@ class VoxCPM2ServerImpl:
         )
 
     def encode_latents(self, wav: bytes, wav_format: str) -> bytes:
-        wav_np, _ = librosa.load(io.BytesIO(wav), sr=self.encoder_sample_rate, mono=False)
+        wav_np, _ = librosa.load(
+            io.BytesIO(wav), sr=self.encoder_sample_rate, mono=False
+        )
         wav_tensor = torch.from_numpy(wav_np)
         if wav_tensor.ndim == 1:
             wav_tensor = wav_tensor.unsqueeze(0)
@@ -130,13 +134,17 @@ class VoxCPM2ServerImpl:
     ) -> None:
         if prompt_latents is None:
             if len(prompt_text) > 0:
-                raise ValueError("Prompt text is not allowed when prompt latents are not provided")
+                raise ValueError(
+                    "Prompt text is not allowed when prompt latents are not provided"
+                )
             self.llm.add_request(
                 seq_id=seq_id,
                 target_text=target_text,
                 prompt_text="",
                 ref_audio_latents=(
-                    np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(-1, self.llm.feat_dim)
+                    np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(
+                        -1, self.llm.feat_dim
+                    )
                     if ref_audio_latents is not None
                     else None
                 ),
@@ -149,14 +157,18 @@ class VoxCPM2ServerImpl:
         if len(prompt_text) == 0:
             raise ValueError("Prompt text is required when prompt latents are provided")
 
-        prompt_latents_arr = np.frombuffer(prompt_latents, dtype=np.float32).reshape(-1, self.llm.feat_dim)
+        prompt_latents_arr = np.frombuffer(prompt_latents, dtype=np.float32).reshape(
+            -1, self.llm.feat_dim
+        )
         self.llm.add_request(
             seq_id=seq_id,
             target_text=target_text,
             prompt_text=prompt_text,
             prompt_latents=prompt_latents_arr,
             ref_audio_latents=(
-                np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(-1, self.llm.feat_dim)
+                np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(
+                    -1, self.llm.feat_dim
+                )
                 if ref_audio_latents is not None
                 else None
             ),
@@ -183,10 +195,14 @@ class VoxCPM2ServerImpl:
 
     def load_lora(self, lora_path: str) -> LoadLoraResponse:
         if self.lora_config is None:
-            raise RuntimeError("LoRA is not configured for this model. Initialize with lora_config.")
+            raise RuntimeError(
+                "LoRA is not configured for this model. Initialize with lora_config."
+            )
         model = cast(VoxCPM2Runner, self.llm.model_runner).model
         loaded, skipped = load_lora_weights(model, lora_path, device="cuda")
-        return LoadLoraResponse(status="ok", loaded_keys=len(loaded), skipped_keys=len(skipped))
+        return LoadLoraResponse(
+            status="ok", loaded_keys=len(loaded), skipped_keys=len(skipped)
+        )
 
     def reset_lora(self) -> ResetLoraResponse:
         if self.lora_config is None:
@@ -260,7 +276,9 @@ def main_loop(queue_in: mp.Queue, queue_out: mp.Queue, args, kwargs):
             output = srv.step()
             for seq in output:
                 latest_waveform = seq.custom_payload.generated_waveforms[-1]
-                queue_out.put({"type": "stream", "id": seq.seq_id, "data": latest_waveform})
+                queue_out.put(
+                    {"type": "stream", "id": seq.seq_id, "data": latest_waveform}
+                )
                 if seq.is_finished:
                     queue_out.put({"type": "stream", "id": seq.seq_id, "data": None})
 
@@ -325,7 +343,9 @@ class AsyncVoxCPM2Server:
                     continue
                 if res.get("type") == "init_error":
                     if not self._init_fut.done():
-                        self._init_fut.set_exception(RuntimeError(res.get("error", "unknown init error")))
+                        self._init_fut.set_exception(
+                            RuntimeError(res.get("error", "unknown init error"))
+                        )
                     continue
 
                 if res["type"] == "stream":
@@ -333,9 +353,13 @@ class AsyncVoxCPM2Server:
                         await self.stream_table[res["id"]].put(res["data"])
                 elif res["id"] in self.op_table:
                     if res["type"] == "response":
-                        self.op_table[res["id"]].set_result(res["data"] if "data" in res else None)
+                        self.op_table[res["id"]].set_result(
+                            res["data"] if "data" in res else None
+                        )
                     else:
-                        self.op_table[res["id"]].set_exception(RuntimeError(res["error"]))
+                        self.op_table[res["id"]].set_exception(
+                            RuntimeError(res["error"])
+                        )
                     del self.op_table[res["id"]]
         except asyncio.CancelledError:
             return
@@ -345,7 +369,10 @@ class AsyncVoxCPM2Server:
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[Any] = loop.create_future()
         self.op_table[op_id] = fut
-        await asyncio.to_thread(self.queue_in.put, {"id": op_id, "type": cmd, "args": args, "kwargs": kwargs})
+        await asyncio.to_thread(
+            self.queue_in.put,
+            {"id": op_id, "type": cmd, "args": args, "kwargs": kwargs},
+        )
         return await fut
 
     async def health(self) -> HealthResponse:
@@ -359,7 +386,9 @@ class AsyncVoxCPM2Server:
             if self.process.exitcode is not None:
                 if not self._init_fut.done():
                     self._init_fut.set_exception(
-                        RuntimeError(f"server process exited early: exitcode={self.process.exitcode}")
+                        RuntimeError(
+                            f"server process exited early: exitcode={self.process.exitcode}"
+                        )
                     )
                 break
             await asyncio.sleep(0.05)
@@ -527,9 +556,13 @@ class AsyncVoxCPM2ServerPool:
             if prompt_id not in self._prompt_pool:
                 raise ValueError(f"Prompt with id {prompt_id} not found")
             if prompt_latents is not None:
-                raise ValueError("Prompt latents and prompt id cannot be provided at the same time")
+                raise ValueError(
+                    "Prompt latents and prompt id cannot be provided at the same time"
+                )
             if len(prompt_text) > 0:
-                raise ValueError("Prompt text and prompt id cannot be provided at the same time")
+                raise ValueError(
+                    "Prompt text and prompt id cannot be provided at the same time"
+                )
             prompt_info = self._prompt_pool[prompt_id]
             prompt_latents = prompt_info["latents"]
             prompt_text = prompt_info["text"]
@@ -538,7 +571,9 @@ class AsyncVoxCPM2ServerPool:
             if ref_audio_id not in self._reference_pool:
                 raise ValueError(f"Reference with id {ref_audio_id} not found")
             if ref_audio_latents is not None:
-                raise ValueError("Reference latents and reference id cannot be provided at the same time")
+                raise ValueError(
+                    "Reference latents and reference id cannot be provided at the same time"
+                )
             ref_audio_info = self._reference_pool[ref_audio_id]
             ref_audio_latents = ref_audio_info["latents"]
 
@@ -560,15 +595,21 @@ class AsyncVoxCPM2ServerPool:
             self.servers_load[min_load_server_idx] -= 1
 
     async def set_lora_enabled(self, enabled: bool):
-        results = await asyncio.gather(*[server.set_lora_enabled(enabled) for server in self.servers])
+        results = await asyncio.gather(
+            *[server.set_lora_enabled(enabled) for server in self.servers]
+        )
         return results[0]
 
     async def load_lora(self, lora_path: str):
-        results = await asyncio.gather(*[server.load_lora(lora_path) for server in self.servers])
+        results = await asyncio.gather(
+            *[server.load_lora(lora_path) for server in self.servers]
+        )
         return results[0]
 
     async def reset_lora(self):
-        results = await asyncio.gather(*[server.reset_lora() for server in self.servers])
+        results = await asyncio.gather(
+            *[server.reset_lora() for server in self.servers]
+        )
         return results[0]
 
 
@@ -612,7 +653,9 @@ class SyncVoxCPM2ServerPool:
 
     def encode_latents(self, wav: bytes, wav_format: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.encode_latents(wav, wav_format))
+        return self.loop.run_until_complete(
+            self.server_pool.encode_latents(wav, wav_format)
+        )
 
     def get_model_info(self) -> ModelInfoResponse:
         assert self.loop is not None
@@ -620,7 +663,9 @@ class SyncVoxCPM2ServerPool:
 
     def add_prompt(self, wav: bytes, wav_format: str, prompt_text: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.add_prompt(wav, wav_format, prompt_text))
+        return self.loop.run_until_complete(
+            self.server_pool.add_prompt(wav, wav_format, prompt_text)
+        )
 
     def remove_prompt(self, prompt_id: str):
         assert self.loop is not None
@@ -628,11 +673,15 @@ class SyncVoxCPM2ServerPool:
 
     def add_reference(self, wav: bytes, wav_format: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.add_reference(wav, wav_format))
+        return self.loop.run_until_complete(
+            self.server_pool.add_reference(wav, wav_format)
+        )
 
     def remove_reference(self, reference_id: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.remove_reference(reference_id))
+        return self.loop.run_until_complete(
+            self.server_pool.remove_reference(reference_id)
+        )
 
     def generate(
         self,

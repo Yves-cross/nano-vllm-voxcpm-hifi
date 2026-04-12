@@ -52,7 +52,9 @@ def _extract_if_archive(src_file: Path, dst_dir: Path) -> Path:
                 # Avoid ZipSlip.
                 out_path = (dst_dir / zip_member.filename).resolve()
                 if not str(out_path).startswith(str(dst_dir.resolve()) + os.sep):
-                    raise RuntimeError(f"Refusing to extract zip member outside target dir: {zip_member.filename}")
+                    raise RuntimeError(
+                        f"Refusing to extract zip member outside target dir: {zip_member.filename}"
+                    )
             zf.extractall(dst_dir)
         return dst_dir
 
@@ -63,7 +65,9 @@ def _extract_if_archive(src_file: Path, dst_dir: Path) -> Path:
             for tar_member in tf.getmembers():
                 out_path = (dst_dir / tar_member.name).resolve()
                 if not str(out_path).startswith(str(dst_resolved) + os.sep):
-                    raise RuntimeError(f"Refusing to extract tar member outside target dir: {tar_member.name}")
+                    raise RuntimeError(
+                        f"Refusing to extract tar member outside target dir: {tar_member.name}"
+                    )
             tf.extractall(dst_dir)
         return dst_dir
 
@@ -117,7 +121,9 @@ def load_lora_config_from_checkpoint(
     return LoRAConfig(**lora_cfg_obj)
 
 
-def resolve_lora_uri(*, uri: str, cache_dir: str, expected_sha256: str | None) -> ResolvedArtifact:
+def resolve_lora_uri(
+    *, uri: str, cache_dir: str, expected_sha256: str | None
+) -> ResolvedArtifact:
     """Resolve a LoRA artifact URI to a local path.
 
     Supported schemes:
@@ -141,9 +147,13 @@ def resolve_lora_uri(*, uri: str, cache_dir: str, expected_sha256: str | None) -
             rel_str = resolved_path_marker.read_text(encoding="utf-8").strip()
             if not rel_str:
                 raise RuntimeError("Invalid resolver cache: empty .resolved_path")
-            return ResolvedArtifact(local_path=(dst_root / rel_str).resolve(), cache_key=key)
+            return ResolvedArtifact(
+                local_path=(dst_root / rel_str).resolve(), cache_key=key
+            )
         # Backward compatibility: older cache entries.
-        return ResolvedArtifact(local_path=(dst_root / "artifact").resolve(), cache_key=key)
+        return ResolvedArtifact(
+            local_path=(dst_root / "artifact").resolve(), cache_key=key
+        )
 
     parsed = urllib.parse.urlparse(uri)
     scheme = parsed.scheme
@@ -201,7 +211,9 @@ def resolve_lora_uri(*, uri: str, cache_dir: str, expected_sha256: str | None) -
             else:
                 out_path = artifact_root / Path(key_prefix).name
                 s3.download_file(bucket, key_prefix, str(out_path))
-                resolved_path = _extract_if_archive(out_path, artifact_root / "extracted")
+                resolved_path = _extract_if_archive(
+                    out_path, artifact_root / "extracted"
+                )
 
         elif scheme == "hf":
             # Format: hf://repo_id@revision?path=relative/path
@@ -252,7 +264,9 @@ def resolve_lora_uri(*, uri: str, cache_dir: str, expected_sha256: str | None) -
                 actual = _sha256_file(resolved_path)
 
             if actual.lower() != expected:
-                raise RuntimeError(f"LoRA sha256 mismatch: expected={expected} actual={actual}")
+                raise RuntimeError(
+                    f"LoRA sha256 mismatch: expected={expected} actual={actual}"
+                )
 
         done_marker.parent.mkdir(parents=True, exist_ok=True)
         rel_path = resolved_path.resolve().relative_to(dst_root.resolve())

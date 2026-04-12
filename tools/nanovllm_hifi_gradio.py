@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_TARGET_TEXT = "今天天气不错，我们继续测试一下后续续写的稳定性。"
 API_BASE_URL = os.environ.get("NANOVLLM_API_BASE_URL", "http://127.0.0.1:8800")
 DEFAULT_CFG = float(os.environ.get("NANOVLLM_HIFI_DEFAULT_CFG", "2.0"))
-DEFAULT_MAX_GENERATE_LENGTH = int(os.environ.get("NANOVLLM_HIFI_DEFAULT_MAX_GENERATE_LENGTH", "2000"))
+DEFAULT_MAX_GENERATE_LENGTH = int(
+    os.environ.get("NANOVLLM_HIFI_DEFAULT_MAX_GENERATE_LENGTH", "2000")
+)
 DEFAULT_TEMPERATURE = float(os.environ.get("NANOVLLM_HIFI_DEFAULT_TEMPERATURE", "1.0"))
 
 CUSTOM_CSS = """
@@ -85,9 +87,13 @@ class NanoVllmHifiDemo:
                 "temperature": float(temperature),
                 "max_generate_length": int(max_generate_length),
             }
-            r = requests.post(API_BASE_URL + "/generate_blocking_wav", json=gen_payload, timeout=120)
+            r = requests.post(
+                API_BASE_URL + "/generate_blocking_wav", json=gen_payload, timeout=120
+            )
             r.raise_for_status()
-            with tempfile.NamedTemporaryFile(prefix="nanovllm_hifi_", suffix=".wav", delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(
+                prefix="nanovllm_hifi_", suffix=".wav", delete=False
+            ) as tmp:
                 tmp.write(r.content)
                 out_path = tmp.name
             meta = (
@@ -111,28 +117,56 @@ def create_demo() -> gr.Blocks:
         gr.HTML(
             '<div class="logo"><h1>Nano-vLLM HiFi 克隆</h1><p>前端页面，后端直连 Nano-vLLM FastAPI 的 hifi API</p></div>'
         )
-        gr.Markdown(
-            "上传参考音频后，可先点 **ASR 自动填充**，再手动修正 prompt text，最后生成 HiFi 克隆结果。"
-        )
+        gr.Markdown("上传参考音频后，可先点 **ASR 自动填充**，再手动修正 prompt text，最后生成 HiFi 克隆结果。")
         with gr.Row():
             with gr.Column():
-                ref_wav = gr.Audio(sources=["upload", "microphone"], type="filepath", label="参考音频")
+                ref_wav = gr.Audio(
+                    sources=["upload", "microphone"], type="filepath", label="参考音频"
+                )
                 asr_btn = gr.Button("ASR 自动填充", variant="secondary")
                 prompt_text = gr.Textbox(label="参考音频内容文本（prompt text）", lines=4)
-                target_text = gr.Textbox(label="目标文本", lines=3, value=DEFAULT_TARGET_TEXT)
+                target_text = gr.Textbox(
+                    label="目标文本", lines=3, value=DEFAULT_TARGET_TEXT
+                )
                 with gr.Accordion("高级参数", open=False):
-                    cfg_value = gr.Slider(1.0, 3.0, value=DEFAULT_CFG, step=0.1, label="cfg_value")
-                    temperature = gr.Slider(0.0, 1.5, value=DEFAULT_TEMPERATURE, step=0.1, label="temperature")
-                    max_generate_length = gr.Slider(64, 4096, value=DEFAULT_MAX_GENERATE_LENGTH, step=1, label="max_generate_length")
+                    cfg_value = gr.Slider(
+                        1.0, 3.0, value=DEFAULT_CFG, step=0.1, label="cfg_value"
+                    )
+                    temperature = gr.Slider(
+                        0.0,
+                        1.5,
+                        value=DEFAULT_TEMPERATURE,
+                        step=0.1,
+                        label="temperature",
+                    )
+                    max_generate_length = gr.Slider(
+                        64,
+                        4096,
+                        value=DEFAULT_MAX_GENERATE_LENGTH,
+                        step=1,
+                        label="max_generate_length",
+                    )
                 run_btn = gr.Button("开始生成", variant="primary", size="lg")
             with gr.Column():
                 audio_out = gr.Audio(label="生成结果")
                 meta_out = gr.Textbox(label="本次请求参数", lines=8)
 
-        asr_btn.click(fn=demo.recognize, inputs=[ref_wav], outputs=[prompt_text], show_progress=True)
+        asr_btn.click(
+            fn=demo.recognize,
+            inputs=[ref_wav],
+            outputs=[prompt_text],
+            show_progress=True,
+        )
         run_btn.click(
             fn=demo.generate_hifi,
-            inputs=[ref_wav, prompt_text, target_text, cfg_value, temperature, max_generate_length],
+            inputs=[
+                ref_wav,
+                prompt_text,
+                target_text,
+                cfg_value,
+                temperature,
+                max_generate_length,
+            ],
             outputs=[audio_out, meta_out],
             show_progress=True,
             api_name="generate_hifi",

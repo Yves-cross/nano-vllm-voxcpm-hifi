@@ -17,7 +17,11 @@ TARGET_TEXT_DEFAULT = "今天天气不错，我们继续测试一下后续续写
 def run_once(base_url: str, hifi_id: str, target_text: str, route: str, timeout: int):
     t0 = time.time()
     try:
-        r = requests.post(base_url + route, json={"target_text": target_text, "hifi_id": hifi_id}, timeout=timeout)
+        r = requests.post(
+            base_url + route,
+            json={"target_text": target_text, "hifi_id": hifi_id},
+            timeout=timeout,
+        )
         sec = time.time() - t0
         r.raise_for_status()
         return {"ok": True, "total_sec": round(sec, 3), "bytes": len(r.content)}
@@ -51,8 +55,14 @@ def summarize(results):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:8800")
-    ap.add_argument("--route", default="/generate_blocking", choices=["/generate_blocking", "/generate_blocking_wav"])
-    ap.add_argument("--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav")
+    ap.add_argument(
+        "--route",
+        default="/generate_blocking",
+        choices=["/generate_blocking", "/generate_blocking_wav"],
+    )
+    ap.add_argument(
+        "--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav"
+    )
     ap.add_argument("--wav-format", default="wav")
     ap.add_argument("--prompt-text", default=PROMPT_TEXT_DEFAULT)
     ap.add_argument("--target-text", default=TARGET_TEXT_DEFAULT)
@@ -64,47 +74,74 @@ def main():
 
     ref = args.ref_wav
     if not os.path.exists(ref):
-        cands = sorted(glob.glob('/tmp/gradio/*/audio.wav'), key=os.path.getmtime, reverse=True)
+        cands = sorted(
+            glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True
+        )
         if not cands:
-            raise SystemExit('no reference wav found')
+            raise SystemExit("no reference wav found")
         ref = cands[0]
-    with open(ref, 'rb') as f:
-        wav_b64 = base64.b64encode(f.read()).decode('ascii')
+    with open(ref, "rb") as f:
+        wav_b64 = base64.b64encode(f.read()).decode("ascii")
 
-    requests.get(args.base_url + '/health', timeout=10).raise_for_status()
-    requests.post(args.base_url + '/generate_blocking_wav', json={'target_text': '你好', 'max_generate_length': 128}, timeout=args.timeout).raise_for_status()
+    requests.get(args.base_url + "/health", timeout=10).raise_for_status()
+    requests.post(
+        args.base_url + "/generate_blocking_wav",
+        json={"target_text": "你好", "max_generate_length": 128},
+        timeout=args.timeout,
+    ).raise_for_status()
 
     add_t0 = time.time()
-    r = requests.post(args.base_url + '/add_hifi', json={'wav_base64': wav_b64, 'wav_format': args.wav_format, 'prompt_text': args.prompt_text}, timeout=args.timeout)
+    r = requests.post(
+        args.base_url + "/add_hifi",
+        json={
+            "wav_base64": wav_b64,
+            "wav_format": args.wav_format,
+            "prompt_text": args.prompt_text,
+        },
+        timeout=args.timeout,
+    )
     r.raise_for_status()
-    hifi_id = r.json()['hifi_id']
+    hifi_id = r.json()["hifi_id"]
     add_sec = round(time.time() - add_t0, 3)
 
     try:
         if args.sleep_after_add > 0:
             time.sleep(args.sleep_after_add)
-        warmups = [run_once(args.base_url, hifi_id, args.target_text, args.route, args.timeout) for _ in range(args.warmup_runs)]
+        warmups = [
+            run_once(args.base_url, hifi_id, args.target_text, args.route, args.timeout)
+            for _ in range(args.warmup_runs)
+        ]
 
         out = {
-            'route': args.route,
-            'hifi_id': hifi_id,
-            'add_hifi_sec': add_sec,
-            'sleep_after_add_sec': args.sleep_after_add,
-            'warmups': warmups,
-            'runs': {}
+            "route": args.route,
+            "hifi_id": hifi_id,
+            "add_hifi_sec": add_sec,
+            "sleep_after_add_sec": args.sleep_after_add,
+            "warmups": warmups,
+            "runs": {},
         }
         for n in args.concurrency:
             with cf.ThreadPoolExecutor(max_workers=n) as ex:
-                futs = [ex.submit(run_once, args.base_url, hifi_id, args.target_text, args.route, args.timeout) for _ in range(n)]
+                futs = [
+                    ex.submit(
+                        run_once,
+                        args.base_url,
+                        hifi_id,
+                        args.target_text,
+                        args.route,
+                        args.timeout,
+                    )
+                    for _ in range(n)
+                ]
                 results = [f.result() for f in futs]
-            out['runs'][str(n)] = {'summary': summarize(results), 'results': results}
+            out["runs"][str(n)] = {"summary": summarize(results), "results": results}
         print(json.dumps(out, ensure_ascii=False, indent=2))
     finally:
         try:
-            requests.delete(args.base_url + f'/hifi/{hifi_id}', timeout=30)
+            requests.delete(args.base_url + f"/hifi/{hifi_id}", timeout=30)
         except Exception:
             pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -72,15 +72,27 @@ def build_lifespan(cfg: ServiceConfig):
                     target_text=cfg.warmup.text,
                     max_generate_length=cfg.warmup.max_generate_length,
                 ):
-                    logger.info("async_warmup_trace status=first_chunk_ok delay=%.3f elapsed=%.4f", cfg.warmup.delay_sec, time.perf_counter() - t0)
+                    logger.info(
+                        "async_warmup_trace status=first_chunk_ok delay=%.3f elapsed=%.4f",
+                        cfg.warmup.delay_sec,
+                        time.perf_counter() - t0,
+                    )
                     break
                 else:
-                    logger.info("async_warmup_trace status=no_chunk delay=%.3f elapsed=%.4f", cfg.warmup.delay_sec, time.perf_counter() - t0)
+                    logger.info(
+                        "async_warmup_trace status=no_chunk delay=%.3f elapsed=%.4f",
+                        cfg.warmup.delay_sec,
+                        time.perf_counter() - t0,
+                    )
             except asyncio.CancelledError:
                 logger.info("async_warmup_trace status=cancelled")
                 raise
             except Exception as e:
-                logger.warning("async_warmup_trace status=failed delay=%.3f err=%s", cfg.warmup.delay_sec, e)
+                logger.warning(
+                    "async_warmup_trace status=failed delay=%.3f err=%s",
+                    cfg.warmup.delay_sec,
+                    e,
+                )
 
         try:
             await server.wait_for_ready()
@@ -96,9 +108,14 @@ def build_lifespan(cfg: ServiceConfig):
 
             app.state.ready = True
             if cfg.warmup.enabled:
-                warmup_task = asyncio.create_task(_run_async_warmup(), name="nanovllm-async-warmup")
+                warmup_task = asyncio.create_task(
+                    _run_async_warmup(), name="nanovllm-async-warmup"
+                )
                 app.state.warmup_task = warmup_task
-                logger.info("async_warmup_trace status=scheduled delay=%.3f", cfg.warmup.delay_sec)
+                logger.info(
+                    "async_warmup_trace status=scheduled delay=%.3f",
+                    cfg.warmup.delay_sec,
+                )
             yield
         finally:
             if warmup_task is not None and not warmup_task.done():

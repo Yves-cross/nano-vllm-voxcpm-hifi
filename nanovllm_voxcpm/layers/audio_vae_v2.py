@@ -64,7 +64,9 @@ class Snake1d(nn.Module):
 
 
 class CausalResidualUnit(nn.Module):
-    def __init__(self, dim: int = 16, dilation: int = 1, kernel: int = 7, groups: int = 1):
+    def __init__(
+        self, dim: int = 16, dilation: int = 1, kernel: int = 7, groups: int = 1
+    ):
         super().__init__()
         pad = ((7 - 1) * dilation) // 2
         self.block = nn.Sequential(
@@ -126,7 +128,9 @@ class CausalEncoder(nn.Module):
         for stride in strides:
             d_model *= 2
             groups = d_model // 2 if depthwise else 1
-            self.block += [CausalEncoderBlock(output_dim=d_model, stride=stride, groups=groups)]
+            self.block += [
+                CausalEncoderBlock(output_dim=d_model, stride=stride, groups=groups)
+            ]
 
         self.fc_mu = WNCausalConv1d(d_model, latent_dim, kernel_size=3, padding=1)
         self.fc_logvar = WNCausalConv1d(d_model, latent_dim, kernel_size=3, padding=1)
@@ -235,11 +239,16 @@ class SampleRateConditionLayer(nn.Module):
 
     def forward(self, x, sr_cond):
         if self.cond_type in {"scale_bias", "scale_bias_init"}:
-            x = x * self.scale_embed(sr_cond).unsqueeze(-1) + self.bias_embed(sr_cond).unsqueeze(-1)
+            x = x * self.scale_embed(sr_cond).unsqueeze(-1) + self.bias_embed(
+                sr_cond
+            ).unsqueeze(-1)
         elif self.cond_type == "add":
             x = x + self.cond_embed(sr_cond).unsqueeze(-1)
         elif self.cond_type == "concat":
-            x = torch.cat([x, self.cond_embed(sr_cond).unsqueeze(-1).repeat(1, 1, x.shape[-1])], dim=1)
+            x = torch.cat(
+                [x, self.cond_embed(sr_cond).unsqueeze(-1).repeat(1, 1, x.shape[-1])],
+                dim=1,
+            )
         return self.out_layer(x)
 
 
@@ -260,7 +269,13 @@ class CausalDecoder(nn.Module):
         super().__init__()
         if depthwise:
             layers = [
-                WNCausalConv1d(input_channel, input_channel, kernel_size=7, padding=3, groups=input_channel),
+                WNCausalConv1d(
+                    input_channel,
+                    input_channel,
+                    kernel_size=7,
+                    padding=3,
+                    groups=input_channel,
+                ),
                 WNCausalConv1d(input_channel, channels, kernel_size=1),
             ]
         else:
@@ -292,7 +307,9 @@ class CausalDecoder(nn.Module):
             self.default_sr_idx = None
         else:
             self.model = nn.ModuleList(layers)
-            self.register_buffer("sr_bin_boundaries", torch.tensor(sr_bin_boundaries, dtype=torch.int32))
+            self.register_buffer(
+                "sr_bin_boundaries", torch.tensor(sr_bin_boundaries, dtype=torch.int32)
+            )
             self.sr_bin_buckets = len(sr_bin_boundaries) + 1
             self.default_sr_idx = len(sr_bin_boundaries)
             cond_layers = []
@@ -314,7 +331,12 @@ class CausalDecoder(nn.Module):
     def get_sr_idx(self, batch_size: int, device: torch.device):
         if self.default_sr_idx is None:
             raise RuntimeError("sr_cond is not configured for this decoder")
-        return torch.full((batch_size,), fill_value=self.default_sr_idx, dtype=torch.long, device=device)
+        return torch.full(
+            (batch_size,),
+            fill_value=self.default_sr_idx,
+            dtype=torch.long,
+            device=device,
+        )
 
     def forward(self, x, sr_cond=None):
         if self.sr_bin_boundaries is None:
@@ -350,7 +372,9 @@ class AudioVAEV2(nn.Module):
         if config is None:
             config = AudioVAEConfigV2(**kwargs) if kwargs else AudioVAEConfigV2()
         elif kwargs:
-            raise ValueError("Pass either config or keyword args to AudioVAEV2, not both")
+            raise ValueError(
+                "Pass either config or keyword args to AudioVAEV2, not both"
+            )
         super().__init__()
         self.encoder_dim = config.encoder_dim
         self.encoder_rates = config.encoder_rates
@@ -391,7 +415,9 @@ class AudioVAEV2(nn.Module):
         if sample_rate is None:
             sample_rate = self.sample_rate
         if sample_rate != self.sample_rate:
-            raise AssertionError(f"Expected sample_rate={self.sample_rate}, got {sample_rate}")
+            raise AssertionError(
+                f"Expected sample_rate={self.sample_rate}, got {sample_rate}"
+            )
         pad_to = self.encoder_chunk_size
         length = audio_data.shape[-1]
         right_pad = math.ceil(length / pad_to) * pad_to - length

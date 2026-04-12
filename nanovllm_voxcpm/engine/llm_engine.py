@@ -72,7 +72,9 @@ import socket
 import torch
 
 logger = logging.getLogger("uvicorn.error")
-LLMENGINE_TRACE_ENABLED = os.environ.get("NANOVLLM_DEEP_TRACE", "1").strip().lower() not in ("0", "false", "off", "no")
+LLMENGINE_TRACE_ENABLED = os.environ.get(
+    "NANOVLLM_DEEP_TRACE", "1"
+).strip().lower() not in ("0", "false", "off", "no")
 
 
 def get_distributed_port():
@@ -92,7 +94,6 @@ class LLMEngineBase:
         config: Config,
         tensor_parallel_size: int,
     ):
-
         self.distributed_port = get_distributed_port()
 
         if config.devices is None or len(config.devices) == 0:
@@ -120,7 +121,9 @@ class LLMEngineBase:
             process.start()
             self.ps.append(process)
             self.events.append(event)
-        self.model_runner = RunnerType(config, 0, config.devices[0], self.distributed_port, self.events)
+        self.model_runner = RunnerType(
+            config, 0, config.devices[0], self.distributed_port, self.events
+        )
         self.scheduler = Scheduler(config)
         atexit.register(self.exit)
 

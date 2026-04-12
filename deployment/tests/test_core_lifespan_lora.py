@@ -25,7 +25,9 @@ def test_lifespan_loads_lora_when_configured(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         lifespan,
         "resolve_lora_uri",
-        lambda uri, cache_dir, expected_sha256: ResolvedArtifact(local_path=tmp_path / "artifact", cache_key="x"),
+        lambda uri, cache_dir, expected_sha256: ResolvedArtifact(
+            local_path=tmp_path / "artifact", cache_key="x"
+        ),
     )
     monkeypatch.setattr(lifespan, "normalize_lora_checkpoint_path", lambda p: ckpt_dir)
     monkeypatch.setattr(lifespan, "load_lora_config_from_checkpoint", lambda p: None)

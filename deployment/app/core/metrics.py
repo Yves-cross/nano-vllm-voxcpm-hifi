@@ -113,7 +113,9 @@ def install_metrics(app: FastAPI) -> None:
         except Exception as e:
             EXCEPTIONS_TOTAL.labels(route=route, exception_type=type(e).__name__).inc()
             dur = time.perf_counter() - start
-            HTTP_REQUEST_DURATION_SECONDS.labels(route=route, method=method).observe(dur)
+            HTTP_REQUEST_DURATION_SECONDS.labels(route=route, method=method).observe(
+                dur
+            )
             HTTP_REQUESTS_TOTAL.labels(route=route, method=method, status="500").inc()
             INFLIGHT_REQUESTS.labels(route=route).dec()
             raise
@@ -128,12 +130,18 @@ def install_metrics(app: FastAPI) -> None:
                     async for chunk in original_iter:
                         yield chunk
                 except Exception as e:
-                    EXCEPTIONS_TOTAL.labels(route=route, exception_type=type(e).__name__).inc()
+                    EXCEPTIONS_TOTAL.labels(
+                        route=route, exception_type=type(e).__name__
+                    ).inc()
                     raise
                 finally:
                     dur = time.perf_counter() - start
-                    HTTP_REQUEST_DURATION_SECONDS.labels(route=route, method=method).observe(dur)
-                    HTTP_REQUESTS_TOTAL.labels(route=route, method=method, status=status).inc()
+                    HTTP_REQUEST_DURATION_SECONDS.labels(
+                        route=route, method=method
+                    ).observe(dur)
+                    HTTP_REQUESTS_TOTAL.labels(
+                        route=route, method=method, status=status
+                    ).inc()
                     INFLIGHT_REQUESTS.labels(route=route).dec()
 
             response.body_iterator = wrapped_iter()

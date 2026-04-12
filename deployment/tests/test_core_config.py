@@ -89,12 +89,17 @@ def test_load_config_validates_serverpool(monkeypatch):
     from app.core.config import load_config
 
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_MAX_NUM_SEQS", "0")
-    with pytest.raises(RuntimeError, match="NANOVLLM_SERVERPOOL_MAX_NUM_SEQS must be > 0"):
+    with pytest.raises(
+        RuntimeError, match="NANOVLLM_SERVERPOOL_MAX_NUM_SEQS must be > 0"
+    ):
         load_config()
 
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_MAX_NUM_SEQS", "16")
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", "1.1")
-    with pytest.raises(RuntimeError, match=r"NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION must be in \(0, 1\]"):
+    with pytest.raises(
+        RuntimeError,
+        match=r"NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION must be in \(0, 1\]",
+    ):
         load_config()
 
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", "0.95")
@@ -103,7 +108,9 @@ def test_load_config_validates_serverpool(monkeypatch):
         load_config()
 
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_DEVICES", "-1")
-    with pytest.raises(RuntimeError, match="NANOVLLM_SERVERPOOL_DEVICES entries must be >= 0"):
+    with pytest.raises(
+        RuntimeError, match="NANOVLLM_SERVERPOOL_DEVICES entries must be >= 0"
+    ):
         load_config()
 
 

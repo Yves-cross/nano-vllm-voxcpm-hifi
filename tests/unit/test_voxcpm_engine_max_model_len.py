@@ -31,7 +31,9 @@ def _make_engine(max_model_len: int, token_count: int):
 
 
 def test_add_request_rejects_too_long_prompt():
-    e = _make_engine(max_model_len=4, token_count=4)  # + audio_start_token => prompt_len=5
+    e = _make_engine(
+        max_model_len=4, token_count=4
+    )  # + audio_start_token => prompt_len=5
     with pytest.raises(ValueError, match=r"Prompt is too long"):
         e.add_request(seq_id="s", target_text="x", max_generate_length=1)
 

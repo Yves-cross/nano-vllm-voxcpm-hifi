@@ -94,7 +94,9 @@ class LoRAQKVParallelLinear(nn.Module):
 
             # Use buffer to store scaling (CUDA Graph compatible)
             self._base_scaling = lora_alpha / lora_r
-            self.register_buffer("lora_scaling", torch.tensor(self._base_scaling), persistent=False)
+            self.register_buffer(
+                "lora_scaling", torch.tensor(self._base_scaling), persistent=False
+            )
         else:
             self.lora_r = 0
 
@@ -118,7 +120,9 @@ class LoRAQKVParallelLinear(nn.Module):
             shard_offset = self.num_heads * self.head_size
         else:  # v
             shard_size = self.num_kv_heads * self.head_size
-            shard_offset = self.num_heads * self.head_size + self.num_kv_heads * self.head_size
+            shard_offset = (
+                self.num_heads * self.head_size + self.num_kv_heads * self.head_size
+            )
 
         param_data = param_data.narrow(0, shard_offset, shard_size)
         loaded_weight = loaded_weight.chunk(self.tp_size, 0)[self.tp_rank]
@@ -222,7 +226,9 @@ class LoRAMergedColumnParallelLinear(nn.Module):
 
         # LoRA parameters
         self.lora_r = lora_r
-        self.lora_targets = lora_targets if lora_targets is not None else list(range(len(output_sizes)))
+        self.lora_targets = (
+            lora_targets if lora_targets is not None else list(range(len(output_sizes)))
+        )
         self._base_lora_alpha = lora_alpha
 
         if lora_r > 0 and len(self.lora_targets) > 0:
@@ -239,7 +245,9 @@ class LoRAMergedColumnParallelLinear(nn.Module):
                 setattr(self, f"lora_B_{target_idx}", lora_B)
 
             self._base_scaling = lora_alpha / lora_r
-            self.register_buffer("lora_scaling", torch.tensor(self._base_scaling), persistent=False)
+            self.register_buffer(
+                "lora_scaling", torch.tensor(self._base_scaling), persistent=False
+            )
         else:
             self.lora_r = 0
 
@@ -291,7 +299,9 @@ class LoRAMergedColumnParallelLinear(nn.Module):
         for i, target_idx in enumerate(self.lora_targets):
             lora_h = lora_hidden[..., i * self.lora_r : (i + 1) * self.lora_r]
             lora_B = getattr(self, f"lora_B_{target_idx}")
-            splits[target_idx] = splits[target_idx] + F.linear(lora_h, lora_B) * self.lora_scaling
+            splits[target_idx] = (
+                splits[target_idx] + F.linear(lora_h, lora_B) * self.lora_scaling
+            )
 
         return torch.cat(splits, dim=-1)
 
@@ -355,7 +365,9 @@ class LoRARowParallelLinear(nn.Module):
             self.lora_B = nn.Parameter(torch.zeros(output_size, lora_r))
 
             self._base_scaling = lora_alpha / lora_r
-            self.register_buffer("lora_scaling", torch.tensor(self._base_scaling), persistent=False)
+            self.register_buffer(
+                "lora_scaling", torch.tensor(self._base_scaling), persistent=False
+            )
         else:
             self.lora_r = 0
 
@@ -436,7 +448,9 @@ class LoRALinear(nn.Module):
             self.lora_B = nn.Parameter(torch.zeros(out_features, lora_r))
 
             self._base_scaling = lora_alpha / lora_r
-            self.register_buffer("lora_scaling", torch.tensor(self._base_scaling), persistent=False)
+            self.register_buffer(
+                "lora_scaling", torch.tensor(self._base_scaling), persistent=False
+            )
         else:
             self.lora_r = 0
 
@@ -499,4 +513,8 @@ def reset_all_lora_parameters(model: nn.Module):
 
 def get_lora_state_dict(model: nn.Module) -> dict:
     """Get all LoRA parameters"""
-    return {name: param.data.clone() for name, param in model.named_parameters() if "lora_" in name}
+    return {
+        name: param.data.clone()
+        for name, param in model.named_parameters()
+        if "lora_" in name
+    }

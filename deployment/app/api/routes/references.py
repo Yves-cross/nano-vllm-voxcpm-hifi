@@ -20,13 +20,21 @@ logger = logging.getLogger("uvicorn.error")
     "/add_reference",
     response_model=AddReferenceResponse,
     summary="Cache reference audio and return a reusable reference_id",
-    responses={400: {"description": "Invalid input", "model": ErrorResponse}, 503: {"description": "Model server not ready", "model": ErrorResponse}, 500: {"description": "Internal error", "model": ErrorResponse}},
+    responses={
+        400: {"description": "Invalid input", "model": ErrorResponse},
+        503: {"description": "Model server not ready", "model": ErrorResponse},
+        500: {"description": "Internal error", "model": ErrorResponse},
+    },
 )
-async def add_reference(req: AddReferenceRequest, server: Any = Depends(get_server)) -> AddReferenceResponse:
+async def add_reference(
+    req: AddReferenceRequest, server: Any = Depends(get_server)
+) -> AddReferenceResponse:
     try:
         wav = base64.b64decode(req.wav_base64)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid base64 in wav_base64: {e}") from e
+        raise HTTPException(
+            status_code=400, detail=f"Invalid base64 in wav_base64: {e}"
+        ) from e
 
     t0 = perf_counter()
     reference_id = await server.add_reference(wav, req.wav_format)
@@ -35,7 +43,10 @@ async def add_reference(req: AddReferenceRequest, server: Any = Depends(get_serv
     ADD_REFERENCE_TOTAL_SECONDS.observe(total_sec)
     logger.info(
         "add_reference_trace wav_bytes=%s wav_format=%s total=%.4f reference_id=%s",
-        len(wav), req.wav_format, total_sec, reference_id
+        len(wav),
+        req.wav_format,
+        total_sec,
+        reference_id,
     )
     return AddReferenceResponse(
         reference_id=reference_id,
@@ -48,11 +59,17 @@ async def add_reference(req: AddReferenceRequest, server: Any = Depends(get_serv
 @router.delete(
     "/references/{reference_id}",
     summary="Delete a cached reference_id",
-    responses={204: {"description": "Deleted"}, 404: {"description": "Not found", "model": ErrorResponse}, 503: {"description": "Model server not ready", "model": ErrorResponse}},
+    responses={
+        204: {"description": "Deleted"},
+        404: {"description": "Not found", "model": ErrorResponse},
+        503: {"description": "Model server not ready", "model": ErrorResponse},
+    },
 )
 async def delete_reference(reference_id: str, server: Any = Depends(get_server)):
     try:
         await server.remove_reference(reference_id)
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=f"Reference with id {reference_id} not found") from e
+        raise HTTPException(
+            status_code=404, detail=f"Reference with id {reference_id} not found"
+        ) from e
     return None

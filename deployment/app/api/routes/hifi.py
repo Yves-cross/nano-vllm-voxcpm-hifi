@@ -27,13 +27,21 @@ def _get_hifi_pool(request: Request) -> dict[str, dict[str, str]]:
     "/add_hifi",
     response_model=AddHiFiResponse,
     summary="Cache a HiFi clone bundle (prompt_id + reference_id) and return a reusable hifi_id",
-    responses={400: {"description": "Invalid input", "model": ErrorResponse}, 503: {"description": "Model server not ready", "model": ErrorResponse}, 500: {"description": "Internal error", "model": ErrorResponse}},
+    responses={
+        400: {"description": "Invalid input", "model": ErrorResponse},
+        503: {"description": "Model server not ready", "model": ErrorResponse},
+        500: {"description": "Internal error", "model": ErrorResponse},
+    },
 )
-async def add_hifi(req: AddHiFiRequest, request: Request, server: Any = Depends(get_server)) -> AddHiFiResponse:
+async def add_hifi(
+    req: AddHiFiRequest, request: Request, server: Any = Depends(get_server)
+) -> AddHiFiResponse:
     try:
         wav = base64.b64decode(req.wav_base64)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid base64 in wav_base64: {e}") from e
+        raise HTTPException(
+            status_code=400, detail=f"Invalid base64 in wav_base64: {e}"
+        ) from e
 
     t0 = perf_counter()
     prompt_id = await server.add_prompt(wav, req.wav_format, req.prompt_text)
@@ -45,7 +53,13 @@ async def add_hifi(req: AddHiFiRequest, request: Request, server: Any = Depends(
     total_sec = perf_counter() - t0
     logger.info(
         "add_hifi_trace wav_bytes=%s wav_format=%s prompt_text_len=%s total=%.4f hifi_id=%s prompt_id=%s reference_id=%s",
-        len(wav), req.wav_format, len(req.prompt_text), total_sec, hifi_id, prompt_id, reference_id
+        len(wav),
+        req.wav_format,
+        len(req.prompt_text),
+        total_sec,
+        hifi_id,
+        prompt_id,
+        reference_id,
     )
     return AddHiFiResponse(
         hifi_id=hifi_id,
@@ -60,9 +74,15 @@ async def add_hifi(req: AddHiFiRequest, request: Request, server: Any = Depends(
 @router.delete(
     "/hifi/{hifi_id}",
     summary="Delete a cached hifi_id (and its underlying prompt/reference caches)",
-    responses={204: {"description": "Deleted"}, 404: {"description": "Not found", "model": ErrorResponse}, 503: {"description": "Model server not ready", "model": ErrorResponse}},
+    responses={
+        204: {"description": "Deleted"},
+        404: {"description": "Not found", "model": ErrorResponse},
+        503: {"description": "Model server not ready", "model": ErrorResponse},
+    },
 )
-async def delete_hifi(hifi_id: str, request: Request, server: Any = Depends(get_server)):
+async def delete_hifi(
+    hifi_id: str, request: Request, server: Any = Depends(get_server)
+):
     pool = _get_hifi_pool(request)
     if hifi_id not in pool:
         raise HTTPException(status_code=404, detail=f"HiFi with id {hifi_id} not found")

@@ -83,7 +83,9 @@ def test_voxcpm2_runner_slices_decoded_waveform_with_decoder_chunk_size(monkeypa
         kwargs.pop("pin_memory", None)
         return original_tensor(*args, **kwargs)
 
-    monkeypatch.setattr(torch.Tensor, "cuda", lambda self, non_blocking=True: self, raising=False)
+    monkeypatch.setattr(
+        torch.Tensor, "cuda", lambda self, non_blocking=True: self, raising=False
+    )
     monkeypatch.setattr(torch, "zeros", _cpu_zeros)
     monkeypatch.setattr(torch, "tensor", _cpu_tensor)
 
@@ -92,7 +94,9 @@ def test_voxcpm2_runner_slices_decoded_waveform_with_decoder_chunk_size(monkeypa
     runner.feat_dim = 2
     runner.prepare_decode_context = lambda seqs: torch.zeros(1, dtype=torch.int64)
     runner.run_model = lambda inputs, is_prefill: {
-        "latents": torch.zeros((1, runner.patch_size, runner.feat_dim), dtype=torch.float32),
+        "latents": torch.zeros(
+            (1, runner.patch_size, runner.feat_dim), dtype=torch.float32
+        ),
         "stop_flag": torch.zeros((1,), dtype=torch.int64),
     }
 
@@ -124,7 +128,9 @@ def test_voxcpm2_runner_slices_decoded_waveform_with_decoder_chunk_size(monkeypa
         {
             "custom_payload": VoxCPM2Payload(
                 text_tokens=np.array([1], dtype=np.int64),
-                feats=np.zeros((1, runner.patch_size, runner.feat_dim), dtype=np.float32),
+                feats=np.zeros(
+                    (1, runner.patch_size, runner.feat_dim), dtype=np.float32
+                ),
                 feat_masks=np.array([True], dtype=np.bool_),
                 padding_decode=np.zeros((2, runner.feat_dim), dtype=np.float32),
             )

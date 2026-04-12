@@ -68,7 +68,9 @@ class VoxCPMServerImpl:
         devices: List[int] = [],
         lora_config: Optional[LoRAConfig] = None,
     ):
-        model_config = VoxCPMConfig.model_validate_json(open(os.path.join(model_path, "config.json")).read())
+        model_config = VoxCPMConfig.model_validate_json(
+            open(os.path.join(model_path, "config.json")).read()
+        )
 
         model_config.inference_timesteps = inference_timesteps
         self.lora_config = lora_config
@@ -109,7 +111,9 @@ class VoxCPMServerImpl:
         wav_tensor, sr = torchaudio.load(io.BytesIO(wav), format=wav_format)
         wav_tensor = wav_tensor.cuda()
         if sr != self.sample_rate:
-            wav_tensor = torchaudio.functional.resample(wav_tensor, sr, self.sample_rate)
+            wav_tensor = torchaudio.functional.resample(
+                wav_tensor, sr, self.sample_rate
+            )
 
         if wav_tensor.size(0) > 1:
             wav_tensor = wav_tensor.mean(dim=0, keepdim=True)
@@ -131,7 +135,9 @@ class VoxCPMServerImpl:
     ) -> None:
         if prompt_latents is None:
             if len(prompt_text) > 0:
-                raise ValueError("Prompt text is not allowed when prompt latents are not provided")
+                raise ValueError(
+                    "Prompt text is not allowed when prompt latents are not provided"
+                )
             self.llm.add_request(
                 seq_id=seq_id,
                 target_text=target_text,
@@ -148,9 +154,9 @@ class VoxCPMServerImpl:
         # Help static type checkers: prompt_latents is non-None here.
         assert prompt_latents is not None
         prompt_latents_buf: bytes = prompt_latents
-        prompt_latents_arr: np.ndarray = np.frombuffer(prompt_latents_buf, dtype=np.float32).reshape(
-            -1, self.llm.feat_dim
-        )
+        prompt_latents_arr: np.ndarray = np.frombuffer(
+            prompt_latents_buf, dtype=np.float32
+        ).reshape(-1, self.llm.feat_dim)
         self.llm.add_request(
             seq_id=seq_id,
             target_text=target_text,
@@ -185,10 +191,14 @@ class VoxCPMServerImpl:
     def load_lora(self, lora_path: str) -> LoadLoraResponse:
         """Load LoRA weights from a path."""
         if self.lora_config is None:
-            raise RuntimeError("LoRA is not configured for this model. Initialize with lora_config.")
+            raise RuntimeError(
+                "LoRA is not configured for this model. Initialize with lora_config."
+            )
         model = cast(VoxCPMRunner, self.llm.model_runner).model
         loaded, skipped = load_lora_weights(model, lora_path, device="cuda")
-        return LoadLoraResponse(status="ok", loaded_keys=len(loaded), skipped_keys=len(skipped))
+        return LoadLoraResponse(
+            status="ok", loaded_keys=len(loaded), skipped_keys=len(skipped)
+        )
 
     def reset_lora(self) -> ResetLoraResponse:
         """Reset LoRA weights to initial state (effectively unload)."""
@@ -379,7 +389,9 @@ class AsyncVoxCPMServer:
                     continue
                 if res.get("type") == "init_error":
                     if not self._init_fut.done():
-                        self._init_fut.set_exception(RuntimeError(res.get("error", "unknown init error")))
+                        self._init_fut.set_exception(
+                            RuntimeError(res.get("error", "unknown init error"))
+                        )
                     continue
 
                 if res["type"] == "stream":
@@ -390,10 +402,14 @@ class AsyncVoxCPMServer:
                         print(f"Unknown stream_id: {res['id']}")
                 elif res["id"] in self.op_table:
                     if res["type"] == "response":
-                        self.op_table[res["id"]].set_result(res["data"] if "data" in res else None)
+                        self.op_table[res["id"]].set_result(
+                            res["data"] if "data" in res else None
+                        )
                         del self.op_table[res["id"]]
                     else:
-                        self.op_table[res["id"]].set_exception(RuntimeError(res["error"]))
+                        self.op_table[res["id"]].set_exception(
+                            RuntimeError(res["error"])
+                        )
                         del self.op_table[res["id"]]
                 else:
                     print(f"Unknown op_id: {res['id']}")
@@ -432,7 +448,9 @@ class AsyncVoxCPMServer:
             if self.process.exitcode is not None:
                 if not self._init_fut.done():
                     self._init_fut.set_exception(
-                        RuntimeError(f"server process exited early: exitcode={self.process.exitcode}")
+                        RuntimeError(
+                            f"server process exited early: exitcode={self.process.exitcode}"
+                        )
                     )
                 break
             await asyncio.sleep(0.05)
@@ -643,9 +661,13 @@ class AsyncVoxCPMServerPool:
             if prompt_id not in self._prompt_pool:
                 raise ValueError(f"Prompt with id {prompt_id} not found")
             if prompt_latents is not None:
-                raise ValueError("Prompt latents and prompt id cannot be provided at the same time")
+                raise ValueError(
+                    "Prompt latents and prompt id cannot be provided at the same time"
+                )
             if len(prompt_text) > 0:
-                raise ValueError("Prompt text and prompt id cannot be provided at the same time")
+                raise ValueError(
+                    "Prompt text and prompt id cannot be provided at the same time"
+                )
 
             prompt_info = self._prompt_pool[prompt_id]
             prompt_latents = prompt_info["latents"]
@@ -671,15 +693,21 @@ class AsyncVoxCPMServerPool:
 
     # LoRA management methods (apply to all servers)
     async def set_lora_enabled(self, enabled: bool):
-        results = await asyncio.gather(*[server.set_lora_enabled(enabled) for server in self.servers])
+        results = await asyncio.gather(
+            *[server.set_lora_enabled(enabled) for server in self.servers]
+        )
         return results[0]
 
     async def load_lora(self, lora_path: str):
-        results = await asyncio.gather(*[server.load_lora(lora_path) for server in self.servers])
+        results = await asyncio.gather(
+            *[server.load_lora(lora_path) for server in self.servers]
+        )
         return results[0]
 
     async def reset_lora(self):
-        results = await asyncio.gather(*[server.reset_lora() for server in self.servers])
+        results = await asyncio.gather(
+            *[server.reset_lora() for server in self.servers]
+        )
         return results[0]
 
 
@@ -723,7 +751,9 @@ class SyncVoxCPMServerPool:
 
     def encode_latents(self, wav: bytes, wav_format: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.encode_latents(wav, wav_format))
+        return self.loop.run_until_complete(
+            self.server_pool.encode_latents(wav, wav_format)
+        )
 
     def get_model_info(self) -> ModelInfoResponse:
         assert self.loop is not None
@@ -731,7 +761,9 @@ class SyncVoxCPMServerPool:
 
     def add_prompt(self, wav: bytes, wav_format: str, prompt_text: str):
         assert self.loop is not None
-        return self.loop.run_until_complete(self.server_pool.add_prompt(wav, wav_format, prompt_text))
+        return self.loop.run_until_complete(
+            self.server_pool.add_prompt(wav, wav_format, prompt_text)
+        )
 
     def remove_prompt(self, prompt_id: str):
         assert self.loop is not None

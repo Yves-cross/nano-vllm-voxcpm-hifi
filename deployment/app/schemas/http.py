@@ -23,7 +23,9 @@ class ErrorResponse(BaseModel):
 class ModelInfo(BaseModel):
     """Read-only model metadata returned by the engine."""
 
-    sample_rate: int = Field(..., description="Audio sample rate in Hz.", examples=[16000])
+    sample_rate: int = Field(
+        ..., description="Audio sample rate in Hz.", examples=[16000]
+    )
     channels: int = Field(..., description="Number of audio channels.", examples=[1])
     feat_dim: int = Field(..., description="Latent feature dimension.", examples=[64])
     patch_size: int = Field(..., description="Model patch size.", examples=[2])
@@ -37,8 +39,12 @@ class ModelInfo(BaseModel):
 class Mp3Info(BaseModel):
     """MP3 encoder configuration used by /generate."""
 
-    bitrate_kbps: int | None = Field(None, description="Constant bitrate used for MP3 encoding.", examples=[192])
-    quality: int | None = Field(None, description="LAME quality preset (0 is best, 2 is fast).", examples=[2])
+    bitrate_kbps: int | None = Field(
+        None, description="Constant bitrate used for MP3 encoding.", examples=[192]
+    )
+    quality: int | None = Field(
+        None, description="LAME quality preset (0 is best, 2 is fast).", examples=[2]
+    )
 
 
 class LoRAInfo(BaseModel):
@@ -54,7 +60,9 @@ class LoRAInfo(BaseModel):
         description="Logical LoRA ID associated with this instance.",
         examples=["my-lora"],
     )
-    cache_dir: str | None = Field(None, description="Cache directory used to resolve LoRA artifacts.")
+    cache_dir: str | None = Field(
+        None, description="Cache directory used to resolve LoRA artifacts."
+    )
     loaded: bool = Field(
         ...,
         description="Whether LoRA weights have been loaded and enabled.",
@@ -99,16 +107,26 @@ class AddPromptRequest(BaseModel):
     """Request body for POST /add_prompt."""
 
     wav_base64: str = Field(..., description="Base64-encoded prompt audio file bytes.")
-    wav_format: str = Field(..., description="Prompt audio container format (e.g. wav/flac/mp3).")
-    prompt_text: str = Field(..., description="Transcript text corresponding to the prompt audio.")
+    wav_format: str = Field(
+        ..., description="Prompt audio container format (e.g. wav/flac/mp3)."
+    )
+    prompt_text: str = Field(
+        ..., description="Transcript text corresponding to the prompt audio."
+    )
 
 
 class AddHiFiRequest(BaseModel):
     """Request body for POST /add_hifi."""
 
-    wav_base64: str = Field(..., description="Base64-encoded reference/prompt audio file bytes.")
-    wav_format: str = Field(..., description="Audio container format (e.g. wav/flac/mp3).")
-    prompt_text: str = Field(..., description="Transcript text corresponding to the reference audio.")
+    wav_base64: str = Field(
+        ..., description="Base64-encoded reference/prompt audio file bytes."
+    )
+    wav_format: str = Field(
+        ..., description="Audio container format (e.g. wav/flac/mp3)."
+    )
+    prompt_text: str = Field(
+        ..., description="Transcript text corresponding to the reference audio."
+    )
 
 
 class AddPromptResponse(BaseModel):
@@ -123,8 +141,12 @@ class AddPromptResponse(BaseModel):
 class AddReferenceRequest(BaseModel):
     """Request body for POST /add_reference."""
 
-    wav_base64: str = Field(..., description="Base64-encoded reference audio file bytes.")
-    wav_format: str = Field(..., description="Reference audio container format (e.g. wav/flac/mp3).")
+    wav_base64: str = Field(
+        ..., description="Base64-encoded reference audio file bytes."
+    )
+    wav_format: str = Field(
+        ..., description="Reference audio container format (e.g. wav/flac/mp3)."
+    )
 
 
 class AddReferenceResponse(BaseModel):
@@ -210,6 +232,8 @@ class GenerateRequest(BaseModel):
         description="(reference audio) Cached reference ID returned by /add_reference.",
     )
 
-    max_generate_length: int = Field(2000, ge=1, description="Maximum number of model generation steps.")
+    max_generate_length: int = Field(
+        2000, ge=1, description="Maximum number of model generation steps."
+    )
     temperature: float = Field(1.0, ge=0.0, description="Sampling temperature.")
     cfg_value: float = Field(2.0, ge=0.0, description="Classifier-free guidance scale.")

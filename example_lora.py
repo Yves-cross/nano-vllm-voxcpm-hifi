@@ -14,7 +14,9 @@ import asyncio
 async def main():
     # ==================== Configuration ====================
     MODEL_PATH = "openbmb/VoxCPM2"  # Base model path
-    LORA_PATH = "/path/to/lora_weights.ckpt"  # LoRA weights path, None means not loading
+    LORA_PATH = (
+        "/path/to/lora_weights.ckpt"  # LoRA weights path, None means not loading
+    )
 
     LORA_R = 32  # LoRA rank
     LORA_ALPHA = 16.0  # LoRA alpha
@@ -76,7 +78,9 @@ async def main():
     wav_duration = wav.shape[0] / sample_rate
     print(f"Output: {OUTPUT_FILE}")
     print(f"Sample rate: {sample_rate}")
-    print(f"Duration: {wav_duration:.2f}s, Time: {time_used:.2f}s, RTF: {time_used / wav_duration:.4f}")
+    print(
+        f"Duration: {wav_duration:.2f}s, Time: {time_used:.2f}s, RTF: {time_used / wav_duration:.4f}"
+    )
 
     await server.stop()
 

@@ -53,7 +53,12 @@ class ReplicatedLinear(LinearBase):
     ):
         super().__init__(input_size, output_size, bias)
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor, loaded_shard_id: ShardId | None = None):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        loaded_shard_id: ShardId | None = None,
+    ):
         param.data.copy_(loaded_weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -70,7 +75,12 @@ class ColumnParallelLinear(LinearBase):
         tp_size = dist.get_world_size()
         super().__init__(input_size, divide(output_size, tp_size), bias, 0)
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor, loaded_shard_id: ShardId | None = None):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        loaded_shard_id: ShardId | None = None,
+    ):
         param_data = param.data
         assert self.tp_dim is not None
         shard_size = param_data.size(self.tp_dim)
@@ -92,7 +102,12 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         self.output_sizes = output_sizes
         super().__init__(input_size, sum(output_sizes), bias)
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor, loaded_shard_id: ShardId | None = None):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        loaded_shard_id: ShardId | None = None,
+    ):
         param_data = param.data
         assert isinstance(loaded_shard_id, int)
         assert self.tp_dim is not None
@@ -120,7 +135,12 @@ class QKVParallelLinear(ColumnParallelLinear):
         output_size = (total_num_heads + 2 * total_num_kv_heads) * self.head_size
         super().__init__(hidden_size, output_size, bias)
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor, loaded_shard_id: ShardId | None = None):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        loaded_shard_id: ShardId | None = None,
+    ):
         param_data = param.data
         assert self.tp_dim is not None
         assert loaded_shard_id in ["q", "k", "v"]
@@ -132,7 +152,9 @@ class QKVParallelLinear(ColumnParallelLinear):
             shard_offset = self.num_heads * self.head_size
         else:
             shard_size = self.num_kv_heads * self.head_size
-            shard_offset = self.num_heads * self.head_size + self.num_kv_heads * self.head_size
+            shard_offset = (
+                self.num_heads * self.head_size + self.num_kv_heads * self.head_size
+            )
         param_data = param_data.narrow(self.tp_dim, shard_offset, shard_size)
         loaded_weight = loaded_weight.chunk(self.tp_size, self.tp_dim)[self.tp_rank]
         param_data.copy_(loaded_weight)
@@ -148,7 +170,12 @@ class RowParallelLinear(LinearBase):
         tp_size = dist.get_world_size()
         super().__init__(divide(input_size, tp_size), output_size, bias, 1)
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor, loaded_shard_id: ShardId | None = None):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        loaded_shard_id: ShardId | None = None,
+    ):
         param_data = param.data
         assert self.tp_dim is not None
         shard_size = param_data.size(self.tp_dim)
