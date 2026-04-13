@@ -8,143 +8,6 @@ Features:
 - Friendly async API (can be wrapped by an HTTP server; see `deployment/README.md`)
 
 This repository contains a Python package (`nanovllm_voxcpm/`) plus an optional FastAPI demo.
-
-## Installation
-
-### Install from PyPI
-
-Core package:
-
-```bash
-pip install nano-vllm-voxcpm
-```
-
-Or with `uv`:
-
-```bash
-uv pip install nano-vllm-voxcpm
-```
-
-Note: the optional FastAPI demo service (`deployment/`) is not published on PyPI.
-
-### Prerequisites
-
-- Linux + NVIDIA GPU (CUDA)
-- Python >= 3.10
-- `flash-attn` is required (the package imports it at runtime)
-
-The runtime is GPU-centric (Triton + FlashAttention). CPU-only execution is not supported.
-
-### Install from source (dev)
-
-This repo uses `uv` and includes a lockfile (`uv.lock`).
-
-```bash
-uv sync --frozen
-```
-
-Dev deps (tests):
-
-```bash
-uv sync --frozen --dev
-```
-
-Note: `flash-attn` may require additional system CUDA tooling depending on your environment.
-
-## Basic Usage
-
-See `example.py` for an end-to-end async example.
-
-Quickstart:
-
-```bash
-uv run python example.py
-```
-
-### Load a model
-
-`VoxCPM.from_pretrained(...)` accepts either:
-
-- a local model directory path, or
-- a HuggingFace repo id (it will download via `huggingface_hub.snapshot_download`).
-
-The model directory is expected to contain:
-
-- `config.json`
-- one or more `*.safetensors` weight files
-- `audiovae.pth` (VAE weights)
-
-### Generate (async)
-
-If you call `from_pretrained()` inside an async event loop, it returns an `AsyncVoxCPMServerPool`.
-
-```python
-import asyncio
-import numpy as np
-
-from nanovllm_voxcpm import VoxCPM
-
-
-async def main() -> None:
-    server = VoxCPM.from_pretrained(
-        model="/path/to/VoxCPM",
-        devices=[0],
-        max_num_batched_tokens=8192,
-        max_num_seqs=16,
-        gpu_memory_utilization=0.95,
-    )
-    await server.wait_for_ready()
-
-    chunks = []
-    async for chunk in server.generate(target_text="Hello world"):
-        chunks.append(chunk)  # each chunk is a float32 numpy array
-
-    wav = np.concatenate(chunks, axis=0)
-    # Write with the model's sample rate (see your model's AudioVAE config; often 16000)
-    # import soundfile as sf; sf.write("out.wav", wav, sample_rate)
-
-    await server.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### Generate (sync)
-
-If you call `from_pretrained()` outside an event loop, it returns a `SyncVoxCPMServerPool`.
-
-```python
-import numpy as np
-
-from nanovllm_voxcpm import VoxCPM
-
-
-server = VoxCPM.from_pretrained(model="/path/to/VoxCPM", devices=[0])
-chunks = []
-for chunk in server.generate(target_text="Hello world"):
-    chunks.append(chunk)
-wav = np.concatenate(chunks, axis=0)
-server.stop()
-```
-
-### Prompting and reference audio (optional)
-
-The VoxCPM2 server supports these conditioning inputs:
-
-- zero-shot: no prompt or reference audio
-- prompt continuation: provide `prompt_latents` + `prompt_text`
-- stored prompt: provide a `prompt_id` (via `add_prompt`) and then generate with that id
-- reference audio: provide `ref_audio_latents` to add a separate reference-audio condition
-
-`ref_audio_latents` is independent from `prompt_latents`:
-
-- use `prompt_latents` when you want to continue from an existing audio prefix
-- use `ref_audio_latents` when you want to provide extra reference audio without treating it as the decode prefix
-
-See the public API in `nanovllm_voxcpm/models/voxcpm2/server.py` for details.
-
-
 ## What is added in this branch
 
 This branch is no longer just a minimal async wrapper. It now includes a production-oriented FastAPI layer and a set of deployment / benchmarking helpers for real VoxCPM2 cloning use cases.
@@ -280,6 +143,144 @@ With `NANOVLLM_QUEUE_COALESCE_MS=5`:
 | 10 | 1.131 | 2.421 | helps 5-conc a bit, hurts 10-conc badly |
 
 Current recommendation for HiFi on this host: **`NANOVLLM_QUEUE_COALESCE_MS=5`**.
+
+## Installation
+
+### Install from PyPI
+
+Core package:
+
+```bash
+pip install nano-vllm-voxcpm
+```
+
+Or with `uv`:
+
+```bash
+uv pip install nano-vllm-voxcpm
+```
+
+Note: the optional FastAPI demo service (`deployment/`) is not published on PyPI.
+
+### Prerequisites
+
+- Linux + NVIDIA GPU (CUDA)
+- Python >= 3.10
+- `flash-attn` is required (the package imports it at runtime)
+
+The runtime is GPU-centric (Triton + FlashAttention). CPU-only execution is not supported.
+
+### Install from source (dev)
+
+This repo uses `uv` and includes a lockfile (`uv.lock`).
+
+```bash
+uv sync --frozen
+```
+
+Dev deps (tests):
+
+```bash
+uv sync --frozen --dev
+```
+
+Note: `flash-attn` may require additional system CUDA tooling depending on your environment.
+
+## Basic Usage
+
+See `example.py` for an end-to-end async example.
+
+Quickstart:
+
+```bash
+uv run python example.py
+```
+
+### Load a model
+
+`VoxCPM.from_pretrained(...)` accepts either:
+
+- a local model directory path, or
+- a HuggingFace repo id (it will download via `huggingface_hub.snapshot_download`).
+
+The model directory is expected to contain:
+
+- `config.json`
+- one or more `*.safetensors` weight files
+- `audiovae.pth` (VAE weights)
+
+### Generate (async)
+
+If you call `from_pretrained()` inside an async event loop, it returns an `AsyncVoxCPMServerPool`.
+
+```python
+import asyncio
+import numpy as np
+
+from nanovllm_voxcpm import VoxCPM
+
+
+async def main() -> None:
+    server = VoxCPM.from_pretrained(
+        model="/path/to/VoxCPM",
+        devices=[0],
+        max_num_batched_tokens=8192,
+        max_num_seqs=16,
+        gpu_memory_utilization=0.95,
+    )
+    await server.wait_for_ready()
+
+    chunks = []
+    async for chunk in server.generate(target_text="Hello world"):
+        chunks.append(chunk)  # each chunk is a float32 numpy array
+
+    wav = np.concatenate(chunks, axis=0)
+    # Write with the model's sample rate (see your model's AudioVAE config; often 16000)
+    # import soundfile as sf; sf.write("out.wav", wav, sample_rate)
+
+    await server.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Generate (sync)
+
+If you call `from_pretrained()` outside an event loop, it returns a `SyncVoxCPMServerPool`.
+
+```python
+import numpy as np
+
+from nanovllm_voxcpm import VoxCPM
+
+
+server = VoxCPM.from_pretrained(model="/path/to/VoxCPM", devices=[0])
+chunks = []
+for chunk in server.generate(target_text="Hello world"):
+    chunks.append(chunk)
+wav = np.concatenate(chunks, axis=0)
+server.stop()
+```
+
+### Prompting and reference audio (optional)
+
+The VoxCPM2 server supports these conditioning inputs:
+
+- zero-shot: no prompt or reference audio
+- prompt continuation: provide `prompt_latents` + `prompt_text`
+- stored prompt: provide a `prompt_id` (via `add_prompt`) and then generate with that id
+- reference audio: provide `ref_audio_latents` to add a separate reference-audio condition
+
+`ref_audio_latents` is independent from `prompt_latents`:
+
+- use `prompt_latents` when you want to continue from an existing audio prefix
+- use `ref_audio_latents` when you want to provide extra reference audio without treating it as the decode prefix
+            
+See the public API in `nanovllm_voxcpm/models/voxcpm2/server.py` for details.
+
+
+
 
 ## FastAPI demo
 
