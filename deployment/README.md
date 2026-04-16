@@ -1,4 +1,4 @@
-# VoxCPM FastAPI Service
+# VoxCPM HiFi FastAPI Service
 
 This folder contains a production-oriented FastAPI wrapper around
 `nanovllm_voxcpm.models.voxcpm.server.AsyncVoxCPMServerPool`.

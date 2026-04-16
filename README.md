@@ -1,4 +1,4 @@
-# Nano-vLLM-VoxCPM
+# Nano-vLLM VoxCPM HiFi
 
 An inference engine for VoxCPM based on Nano-vLLM.
 
@@ -8,7 +8,7 @@ Features:
 - Friendly async API (can be wrapped by an HTTP server; see `deployment/README.md`)
 
 This repository contains a Python package (`nanovllm_voxcpm/`) plus an optional FastAPI demo.
-## What is added in this branch
+## What's included
 
 This branch is no longer just a minimal async wrapper. It now includes a production-oriented FastAPI layer and a set of deployment / benchmarking helpers for real VoxCPM2 cloning use cases.
 

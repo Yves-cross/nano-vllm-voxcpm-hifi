@@ -3,14 +3,12 @@ name: Release to PyPI
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -26,8 +24,10 @@ jobs:
           enable-cache: true
           activate-environment: true
 
-      - name: Build sdist and wheel
-        run: uv build
+      - name: Build wheel
+        run: uv build --wheel
 
-      - name: Publish to PyPI
-        run: uv publish
+      - name: Publish to PyPI via API token
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish --check-url https://pypi.org/simple
