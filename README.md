@@ -151,13 +151,13 @@ Current recommendation for HiFi on this host: **`NANOVLLM_QUEUE_COALESCE_MS=5`**
 Core package:
 
 ```bash
-pip install nano-vllm-voxcpm
+pip install nano-vllm-voxcpm-hifi
 ```
 
 Or with `uv`:
 
 ```bash
-uv pip install nano-vllm-voxcpm
+uv pip install nano-vllm-voxcpm-hifi
 ```
 
 Note: the optional FastAPI demo service (`deployment/`) is not published on PyPI.

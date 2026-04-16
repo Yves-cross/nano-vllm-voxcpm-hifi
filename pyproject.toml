@@ -3,7 +3,7 @@ requires = ["setuptools>=61", "setuptools-scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nano-vllm-voxcpm"
+name = "nano-vllm-voxcpm-hifi"
 dynamic = ["version"]
 authors = [{ name = "Guoyang Zeng" }]
 classifiers = ["License :: OSI Approved :: MIT License"]

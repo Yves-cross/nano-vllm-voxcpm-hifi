@@ -3,12 +3,12 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nano-vllm-voxcpm-deployment"
+name = "nano-vllm-voxcpm-hifi-deployment"
 version = "0.0.0"
-description = "FastAPI service wrapper for nano-vllm-voxcpm"
+description = "FastAPI service wrapper for nano-vllm-voxcpm-hifi"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "nano-vllm-voxcpm",
+    "nano-vllm-voxcpm-hifi",
     "fastapi[standard]",
     "aiohttp",
     "prometheus_client",
@@ -22,4 +22,4 @@ where = ["."]
 include = ["app*"]
 
 [tool.uv.sources]
-nano-vllm-voxcpm = { workspace = true }
+nano-vllm-voxcpm-hifi = { workspace = true }

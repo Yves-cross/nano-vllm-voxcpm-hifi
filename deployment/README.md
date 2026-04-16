@@ -23,7 +23,7 @@ uv sync --all-packages --frozen
 Alternatively, to sync only the deployment service dependencies:
 
 ```bash
-uv sync --package nano-vllm-voxcpm-deployment --frozen
+uv sync --package nano-vllm-voxcpm-hifi-deployment --frozen
 ```
 
 Note: `uv sync --frozen` (without `--all-packages/--package`) only syncs the root package by default.
@@ -100,7 +100,7 @@ This repo ships a multi-stage CUDA image at `deployment/Dockerfile`.
 Build from the repo root (important: build context is `.`):
 
 ```bash
-docker build -f deployment/Dockerfile -t nano-vllm-voxcpm-deployment:latest .
+docker build -f deployment/Dockerfile -t nano-vllm-voxcpm-hifi-deployment:latest .
 ```
 
 Run:
@@ -110,7 +110,7 @@ docker run --rm -p 8000:8000 \
   -e NANOVLLM_MODEL_PATH=/models/VoxCPM1.5 \
   -e NANOVLLM_CACHE_DIR=/var/cache/nanovllm \
   -v /path/to/models:/models \
-  nano-vllm-voxcpm-deployment:latest
+  nano-vllm-voxcpm-hifi-deployment:latest
 ```
 
 Notes:
