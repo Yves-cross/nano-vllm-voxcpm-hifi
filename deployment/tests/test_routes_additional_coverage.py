@@ -141,9 +141,7 @@ def test_generate_returns_500_if_channels_not_mono(app, monkeypatch):
         }
 
     with TestClient(app) as client:
-        monkeypatch.setattr(
-            client.app.state.server, "get_model_info", get_model_info_stereo
-        )
+        monkeypatch.setattr(client.app.state.server, "get_model_info", get_model_info_stereo)
         r = client.post("/generate", json={"target_text": "hi"})
         assert r.status_code == 500
         assert "Only mono is supported" in r.json()["detail"]
@@ -186,9 +184,7 @@ def test_generate_wav_prompt_hits_encode_latents_branch(app, monkeypatch):
     monkeypatch.setattr(generate_route, "stream_mp3", empty_stream_mp3)
 
     with TestClient(app) as client:
-        monkeypatch.setattr(
-            client.app.state.server, "encode_latents", record_encode_latents
-        )
+        monkeypatch.setattr(client.app.state.server, "encode_latents", record_encode_latents)
         wav_b64 = base64.b64encode(b"FAKEWAV").decode("utf-8")
         with client.stream(
             "POST",
@@ -236,9 +232,7 @@ def test_generate_latents_prompt_hits_latents_decode_branch(app, monkeypatch):
 
 def test_encode_latents_invalid_base64_returns_400(app):
     with TestClient(app) as client:
-        r = client.post(
-            "/encode_latents", json={"wav_base64": "a", "wav_format": "wav"}
-        )
+        r = client.post("/encode_latents", json={"wav_base64": "a", "wav_format": "wav"})
         assert r.status_code == 400
         assert "Invalid base64 in wav_base64" in r.json()["detail"]
 
@@ -248,13 +242,9 @@ def test_encode_latents_server_exception_returns_500(app, monkeypatch):
         raise RuntimeError("boom")
 
     with TestClient(app) as client:
-        monkeypatch.setattr(
-            client.app.state.server, "encode_latents", boom_encode_latents
-        )
+        monkeypatch.setattr(client.app.state.server, "encode_latents", boom_encode_latents)
         wav_b64 = base64.b64encode(b"FAKEWAV").decode("utf-8")
-        r = client.post(
-            "/encode_latents", json={"wav_base64": wav_b64, "wav_format": "wav"}
-        )
+        r = client.post("/encode_latents", json={"wav_base64": wav_b64, "wav_format": "wav"})
         assert r.status_code == 500
         assert r.json() == {"detail": "boom"}
 
@@ -266,12 +256,8 @@ def test_encode_latents_propagates_http_exception(app, monkeypatch):
         raise HTTPException(status_code=503, detail="nope")
 
     with TestClient(app) as client:
-        monkeypatch.setattr(
-            client.app.state.server, "encode_latents", encode_latents_503
-        )
+        monkeypatch.setattr(client.app.state.server, "encode_latents", encode_latents_503)
         wav_b64 = base64.b64encode(b"FAKEWAV").decode("utf-8")
-        r = client.post(
-            "/encode_latents", json={"wav_base64": wav_b64, "wav_format": "wav"}
-        )
+        r = client.post("/encode_latents", json={"wav_base64": wav_b64, "wav_format": "wav"})
         assert r.status_code == 503
         assert r.json() == {"detail": "nope"}

@@ -108,9 +108,7 @@ def build_lifespan(cfg: ServiceConfig):
 
             app.state.ready = True
             if cfg.warmup.enabled:
-                warmup_task = asyncio.create_task(
-                    _run_async_warmup(), name="nanovllm-async-warmup"
-                )
+                warmup_task = asyncio.create_task(_run_async_warmup(), name="nanovllm-async-warmup")
                 app.state.warmup_task = warmup_task
                 logger.info(
                     "async_warmup_trace status=scheduled delay=%.3f",

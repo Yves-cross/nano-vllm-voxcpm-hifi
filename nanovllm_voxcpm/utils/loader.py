@@ -35,9 +35,7 @@ def load_model(model: nn.Module, path: str):
                         break
                 else:
                     param = model.get_parameter(weight_name)
-                    weight_loader = getattr(
-                        param, "weight_loader", default_weight_loader
-                    )
+                    weight_loader = getattr(param, "weight_loader", default_weight_loader)
                     weight_loader(param, f.get_tensor(weight_name))
                     visited_param_names.add(weight_name)
 
@@ -91,9 +89,7 @@ def _map_lora_weight_name(orig_name: str) -> tuple[str, ShardId | None]:
     """
     for pattern, (replacement, shard_id) in LORA_NAME_MAPPING.items():
         if pattern in orig_name:
-            new_name = orig_name.replace(
-                pattern.split(".")[0], replacement.split(".")[0]
-            )
+            new_name = orig_name.replace(pattern.split(".")[0], replacement.split(".")[0])
             if ".lora_A" in pattern:
                 if shard_id is not None:
                     # Fused lora_A (q/k/v/gate/up): return shard_id for special loading
@@ -146,17 +142,13 @@ def load_lora_weights(
         ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
         state_dict = ckpt.get("state_dict", ckpt)
     else:
-        raise FileNotFoundError(
-            f"LoRA checkpoint not found. Expected either {safetensors_file} or {ckpt_file}"
-        )
+        raise FileNotFoundError(f"LoRA checkpoint not found. Expected either {safetensors_file} or {ckpt_file}")
 
     # Build parameter mapping
     model_params = dict(model.named_parameters())
 
     # Track which lora_A have been loaded (for fused loading)
-    lora_A_loaded: dict[
-        str, dict[ShardId, torch.Tensor]
-    ] = {}  # key: param_name, value: {shard_id: tensor}
+    lora_A_loaded: dict[str, dict[ShardId, torch.Tensor]] = {}  # key: param_name, value: {shard_id: tensor}
 
     loaded_keys = []
     skipped_keys = []

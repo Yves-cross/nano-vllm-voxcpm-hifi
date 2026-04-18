@@ -60,9 +60,7 @@ def main():
         default="/generate_blocking",
         choices=["/generate_blocking", "/generate_blocking_wav"],
     )
-    ap.add_argument(
-        "--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav"
-    )
+    ap.add_argument("--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav")
     ap.add_argument("--wav-format", default="wav")
     ap.add_argument("--prompt-text", default=PROMPT_TEXT_DEFAULT)
     ap.add_argument("--target-text", default=TARGET_TEXT_DEFAULT)
@@ -74,9 +72,7 @@ def main():
 
     ref = args.ref_wav
     if not os.path.exists(ref):
-        cands = sorted(
-            glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True
-        )
+        cands = sorted(glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True)
         if not cands:
             raise SystemExit("no reference wav found")
         ref = cands[0]

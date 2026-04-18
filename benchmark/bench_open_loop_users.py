@@ -193,9 +193,7 @@ def _http_post_stream_ttfb(
 
     ctx = ssl.create_default_context() if u.scheme == "https" else None
     if u.scheme == "https":
-        conn: http.client.HTTPConnection = http.client.HTTPSConnection(
-            host, port=port, timeout=timeout_s, context=ctx
-        )
+        conn: http.client.HTTPConnection = http.client.HTTPSConnection(host, port=port, timeout=timeout_s, context=ctx)
     else:
         conn = http.client.HTTPConnection(host, port=port, timeout=timeout_s)
 
@@ -269,9 +267,7 @@ class BenchSummary:
 
 
 async def async_main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(
-        description="Benchmark VoxCPM TTFB under fixed RPS (open-loop)"
-    )
+    p = argparse.ArgumentParser(description="Benchmark VoxCPM TTFB under fixed RPS (open-loop)")
     p.add_argument(
         "--url",
         default=None,
@@ -298,9 +294,7 @@ async def async_main(argv: list[str] | None = None) -> int:
     p.add_argument("--enforce-eager", action="store_true")
 
     p.add_argument("--target-text", default=DEFAULT_TEXT)
-    p.add_argument(
-        "--target-text-file", default=None, help="Read target text from file (UTF-8)"
-    )
+    p.add_argument("--target-text-file", default=None, help="Read target text from file (UTF-8)")
     p.add_argument("--max-generate-length", type=int, default=8000)
     p.add_argument("--temperature", type=float, default=1.0)
     p.add_argument("--cfg-value", type=float, default=2.0)
@@ -317,15 +311,9 @@ async def async_main(argv: list[str] | None = None) -> int:
         help="(HTTP mode) consume full streamed response body (recommended)",
     )
 
-    p.add_argument(
-        "--rps", type=float, default=30.0, help="Target requests/sec arrival rate"
-    )
-    p.add_argument(
-        "--duration-s", type=float, default=60.0, help="Measurement window length"
-    )
-    p.add_argument(
-        "--warmup-s", type=float, default=5.0, help="Warmup time before measurement"
-    )
+    p.add_argument("--rps", type=float, default=30.0, help="Target requests/sec arrival rate")
+    p.add_argument("--duration-s", type=float, default=60.0, help="Measurement window length")
+    p.add_argument("--warmup-s", type=float, default=5.0, help="Warmup time before measurement")
     p.add_argument(
         "--max-inflight",
         type=int,
@@ -353,14 +341,10 @@ async def async_main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.url is None and not torch.cuda.is_available():
-        raise RuntimeError(
-            "CUDA is not available; this project does not support CPU-only in-process benchmarking"
-        )
+        raise RuntimeError("CUDA is not available; this project does not support CPU-only in-process benchmarking")
 
     if args.target_text_file is not None:
-        args.target_text = (
-            open(args.target_text_file, "r", encoding="utf-8").read().strip()
-        )
+        args.target_text = open(args.target_text_file, "r", encoding="utf-8").read().strip()
         if not args.target_text:
             raise ValueError("target text is empty")
 
@@ -374,9 +358,7 @@ async def async_main(argv: list[str] | None = None) -> int:
         raise ValueError("--max-inflight must be >= 1")
 
     if args.url is None and not args.model:
-        raise ValueError(
-            "in-process mode requires --model (or use --url for HTTP mode)"
-        )
+        raise ValueError("in-process mode requires --model (or use --url for HTTP mode)")
 
     devices = _parse_devices(args.devices)
 
@@ -489,9 +471,7 @@ async def async_main(argv: list[str] | None = None) -> int:
                         args.url,
                         {
                             "target_text": args.target_text,
-                            "max_generate_length": int(
-                                max(1, min(args.max_generate_length, 500))
-                            ),
+                            "max_generate_length": int(max(1, min(args.max_generate_length, 500))),
                             "temperature": float(args.temperature),
                             "cfg_value": float(args.cfg_value),
                         },
@@ -559,9 +539,7 @@ async def async_main(argv: list[str] | None = None) -> int:
 
         # Drain in-flight.
         if tasks:
-            done, pending = await asyncio.wait(
-                tasks, timeout=float(args.drain_timeout_s)
-            )
+            done, pending = await asyncio.wait(tasks, timeout=float(args.drain_timeout_s))
             for t in pending:
                 t.cancel()
             if pending:
@@ -638,19 +616,13 @@ async def async_main(argv: list[str] | None = None) -> int:
     print(f"  max_inflight: {args.max_inflight} (queue={args.queue_on_overload})")
     print("Results")
     print(f"  scheduled: {summary.total_scheduled}")
-    print(
-        f"  started: {summary.total_started} (achieved {summary.achieved_rps_started:.2f} rps)"
-    )
+    print(f"  started: {summary.total_started} (achieved {summary.achieved_rps_started:.2f} rps)")
     print(f"  dropped: {summary.total_dropped}")
     print(f"  ok: {summary.total_ok}")
     print(f"  err: {summary.total_err}")
 
     if args.print_top_errors and summary.total_err > 0:
-        err_counter = Counter(
-            r.error
-            for r in results
-            if (r.error is not None and (not r.ok) and (not r.dropped))
-        )
+        err_counter = Counter(r.error for r in results if (r.error is not None and (not r.ok) and (not r.dropped)))
         print("Top errors")
         for msg, cnt in err_counter.most_common(int(args.print_top_errors)):
             print(f"  {cnt}: {msg}")
@@ -660,9 +632,7 @@ async def async_main(argv: list[str] | None = None) -> int:
     print(f"  p90: {_fmt_float(summary.ttfb_p90_s)}")
     print(f"  p95: {_fmt_float(summary.ttfb_p95_s)}")
     print(f"  p99: {_fmt_float(summary.ttfb_p99_s)}")
-    print(
-        f"  mean +/- stdev: {_fmt_float(summary.ttfb_mean_s)} +/- {_fmt_float(summary.ttfb_stdev_s)}"
-    )
+    print(f"  mean +/- stdev: {_fmt_float(summary.ttfb_mean_s)} +/- {_fmt_float(summary.ttfb_stdev_s)}")
 
     if summary.rtf_mean is not None:
         assert summary.sample_rate is not None
@@ -673,9 +643,7 @@ async def async_main(argv: list[str] | None = None) -> int:
         print(f"  RTF p90: {_fmt_float(summary.rtf_p90 or float('nan'))}")
         print(f"  RTF p95: {_fmt_float(summary.rtf_p95 or float('nan'))}")
         print(f"  RTF p99: {_fmt_float(summary.rtf_p99 or float('nan'))}")
-        print(
-            f"  RTF mean +/- stdev: {_fmt_float(summary.rtf_mean)} +/- {_fmt_float(summary.rtf_stdev or 0.0)}"
-        )
+        print(f"  RTF mean +/- stdev: {_fmt_float(summary.rtf_mean)} +/- {_fmt_float(summary.rtf_stdev or 0.0)}")
     elif args.url is not None:
         print("Audio/RTF: unavailable in HTTP mode (MP3 duration not decoded)")
 
@@ -686,9 +654,7 @@ async def async_main(argv: list[str] | None = None) -> int:
         "summary": asdict(summary),
     }
     if args.json_out is not None:
-        os.makedirs(
-            os.path.dirname(os.path.abspath(args.json_out)) or ".", exist_ok=True
-        )
+        os.makedirs(os.path.dirname(os.path.abspath(args.json_out)) or ".", exist_ok=True)
         with open(args.json_out, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=True, indent=2)
 

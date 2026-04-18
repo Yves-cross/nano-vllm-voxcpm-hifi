@@ -45,9 +45,7 @@ def _make_config(residual_lm_no_rope: bool):
         residual_lm_no_rope=residual_lm_no_rope,
         scalar_quantization_latent_dim=4,
         scalar_quantization_scale=9,
-        encoder_config=VoxCPM2EncoderConfig(
-            hidden_dim=8, ffn_dim=16, num_heads=2, num_layers=1, kv_channels=4
-        ),
+        encoder_config=VoxCPM2EncoderConfig(hidden_dim=8, ffn_dim=16, num_heads=2, num_layers=1, kv_channels=4),
         dit_config=VoxCPM2DitConfig(
             hidden_dim=8,
             ffn_dim=16,
@@ -80,9 +78,7 @@ def test_voxcpm2_model_disables_rope_only_for_residual_lm(monkeypatch):
 
     monkeypatch.setattr(voxcpm2_model, "Cpm4Model", FakeCpm4Model)
 
-    model = voxcpm2_model.VoxCPM2Model(
-        _make_config(residual_lm_no_rope=True), inference_timesteps=2
-    )
+    model = voxcpm2_model.VoxCPM2Model(_make_config(residual_lm_no_rope=True), inference_timesteps=2)
 
     assert isinstance(model.base_lm, FakeCpm4Model)
     assert isinstance(model.residual_lm, FakeCpm4Model)

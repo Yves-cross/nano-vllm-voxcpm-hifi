@@ -102,9 +102,7 @@ def test_load_lora_config_from_checkpoint(tmp_path: Path):
     assert cfg.r == 8
     assert cfg.alpha == 4.0
 
-    (ckpt / "lora_config.json").write_text(
-        json.dumps({"base_model": "ignored"}), encoding="utf-8"
-    )
+    (ckpt / "lora_config.json").write_text(json.dumps({"base_model": "ignored"}), encoding="utf-8")
     with pytest.raises(ValueError, match="missing 'lora_config'"):
         load_lora_config_from_checkpoint(ckpt)
 
@@ -118,16 +116,12 @@ def test_resolve_lora_uri_file_and_cache(tmp_path: Path):
     (src / "lora_weights.safetensors").write_bytes(weights)
     expected = _sha256_bytes(weights)
 
-    r1 = resolve_lora_uri(
-        uri=src.as_uri(), cache_dir=str(tmp_path / "cache"), expected_sha256=expected
-    )
+    r1 = resolve_lora_uri(uri=src.as_uri(), cache_dir=str(tmp_path / "cache"), expected_sha256=expected)
     assert r1.local_path.exists()
 
     # Cache fast-path should still work even if the source changes.
     (src / "lora_weights.safetensors").write_bytes(b"weights-v2")
-    r2 = resolve_lora_uri(
-        uri=src.as_uri(), cache_dir=str(tmp_path / "cache"), expected_sha256=expected
-    )
+    r2 = resolve_lora_uri(uri=src.as_uri(), cache_dir=str(tmp_path / "cache"), expected_sha256=expected)
     assert r2.cache_key == r1.cache_key
     assert r2.local_path == r1.local_path
 

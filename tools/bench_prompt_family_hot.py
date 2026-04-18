@@ -10,15 +10,11 @@ from typing import Any
 import requests
 
 
-def stream_generate(
-    base_url: str, payload: dict[str, Any], timeout: tuple[int, int] = (10, 120)
-) -> dict[str, Any]:
+def stream_generate(base_url: str, payload: dict[str, Any], timeout: tuple[int, int] = (10, 120)) -> dict[str, Any]:
     t0 = time.time()
     first = None
     size = 0
-    with requests.post(
-        base_url + "/generate", json=payload, stream=True, timeout=timeout
-    ) as r:
+    with requests.post(base_url + "/generate", json=payload, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         for chunk in r.iter_content(chunk_size=16384):
             if not chunk:
@@ -45,9 +41,7 @@ def encode_latents(base_url: str, wav_b64: str, wav_format: str) -> tuple[str, f
     return r.json()["prompt_latents_base64"], round(time.time() - t0, 3)
 
 
-def add_prompt(
-    base_url: str, wav_b64: str, wav_format: str, prompt_text: str
-) -> tuple[str, float]:
+def add_prompt(base_url: str, wav_b64: str, wav_format: str, prompt_text: str) -> tuple[str, float]:
     t0 = time.time()
     r = requests.post(
         base_url + "/add_prompt",
@@ -67,9 +61,7 @@ def delete_prompt(base_url: str, prompt_id: str) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Hot benchmark: prompt family (prompt_wav vs prompt_latents vs prompt_id)"
-    )
+    p = argparse.ArgumentParser(description="Hot benchmark: prompt family (prompt_wav vs prompt_latents vs prompt_id)")
     p.add_argument("--base-url", default="http://127.0.0.1:8800")
     p.add_argument("--prompt-text", default="这是十五字并发测试语音样本文本")
     p.add_argument("--target-text", default="今天天气不错，我们继续测试一下后续续写的稳定性。")
@@ -88,13 +80,9 @@ def main() -> None:
     args = parse_args()
     ref = args.ref_wav
     if not ref:
-        cands = sorted(
-            glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True
-        )
+        cands = sorted(glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True)
         if not cands:
-            raise SystemExit(
-                "no prompt wav found under /tmp/gradio/*/audio.wav; pass --ref-wav"
-            )
+            raise SystemExit("no prompt wav found under /tmp/gradio/*/audio.wav; pass --ref-wav")
         ref = cands[0]
 
     with open(ref, "rb") as f:
@@ -130,22 +118,16 @@ def main() -> None:
     wav_runs = [stream_generate(args.base_url, payload_wav) for _ in range(args.runs)]
     out["routes"]["prompt_wav"] = {"runs": wav_runs}
 
-    prompt_latents_b64, encode_sec = encode_latents(
-        args.base_url, wav_b64, args.wav_format
-    )
+    prompt_latents_b64, encode_sec = encode_latents(args.base_url, wav_b64, args.wav_format)
     payload_latents = {
         "target_text": args.target_text,
         "prompt_latents_base64": prompt_latents_b64,
         "prompt_text": args.prompt_text,
     }
-    lat_runs = [
-        stream_generate(args.base_url, payload_latents) for _ in range(args.runs)
-    ]
+    lat_runs = [stream_generate(args.base_url, payload_latents) for _ in range(args.runs)]
     out["routes"]["prompt_latents"] = {"encode_sec": encode_sec, "runs": lat_runs}
 
-    prompt_id, add_prompt_sec = add_prompt(
-        args.base_url, wav_b64, args.wav_format, args.prompt_text
-    )
+    prompt_id, add_prompt_sec = add_prompt(args.base_url, wav_b64, args.wav_format, args.prompt_text)
     try:
         payload_id = {
             "target_text": args.target_text,

@@ -33,15 +33,11 @@ def _get_hifi_pool(request: Request) -> dict[str, dict[str, str]]:
         500: {"description": "Internal error", "model": ErrorResponse},
     },
 )
-async def add_hifi(
-    req: AddHiFiRequest, request: Request, server: Any = Depends(get_server)
-) -> AddHiFiResponse:
+async def add_hifi(req: AddHiFiRequest, request: Request, server: Any = Depends(get_server)) -> AddHiFiResponse:
     try:
         wav = base64.b64decode(req.wav_base64)
     except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid base64 in wav_base64: {e}"
-        ) from e
+        raise HTTPException(status_code=400, detail=f"Invalid base64 in wav_base64: {e}") from e
 
     t0 = perf_counter()
     prompt_id = await server.add_prompt(wav, req.wav_format, req.prompt_text)
@@ -80,9 +76,7 @@ async def add_hifi(
         503: {"description": "Model server not ready", "model": ErrorResponse},
     },
 )
-async def delete_hifi(
-    hifi_id: str, request: Request, server: Any = Depends(get_server)
-):
+async def delete_hifi(hifi_id: str, request: Request, server: Any = Depends(get_server)):
     pool = _get_hifi_pool(request)
     if hifi_id not in pool:
         raise HTTPException(status_code=404, detail=f"HiFi with id {hifi_id} not found")

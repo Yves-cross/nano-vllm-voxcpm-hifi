@@ -13,8 +13,7 @@ from app.core.metrics import AUDIO_ENCODE_FAILURES_TOTAL, AUDIO_ENCODE_SECONDS
 
 
 class _DisconnectableRequest(Protocol):
-    async def is_disconnected(self) -> bool:
-        ...
+    async def is_disconnected(self) -> bool: ...
 
 
 def float32_to_s16le_bytes(wav: np.ndarray) -> bytes:
@@ -111,9 +110,7 @@ async def stream_mp3(
             except Exception:
                 pass
 
-    enc_thread = threading.Thread(
-        target=encoder_thread, name="mp3-encoder", daemon=True
-    )
+    enc_thread = threading.Thread(target=encoder_thread, name="mp3-encoder", daemon=True)
     enc_thread.start()
 
     async def pcm_producer() -> None:

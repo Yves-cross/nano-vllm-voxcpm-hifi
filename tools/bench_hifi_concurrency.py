@@ -76,9 +76,7 @@ def summarize(results):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:8800")
-    ap.add_argument(
-        "--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav"
-    )
+    ap.add_argument("--ref-wav", default="/opt/nanovllm-voxcpm/tools/hifi_reference.wav")
     ap.add_argument("--wav-format", default="wav")
     ap.add_argument("--prompt-text", default=PROMPT_TEXT_DEFAULT)
     ap.add_argument("--target-text", default=TARGET_TEXT_DEFAULT)
@@ -132,8 +130,7 @@ def main():
         if args.sleep_after_add > 0:
             time.sleep(args.sleep_after_add)
         hifi_warmups = [
-            run_once(args.base_url, hifi_id, args.target_text, timeout)
-            for _ in range(args.hifi_warmup_runs)
+            run_once(args.base_url, hifi_id, args.target_text, timeout) for _ in range(args.hifi_warmup_runs)
         ]
         if args.sleep_after_warmups > 0:
             time.sleep(args.sleep_after_warmups)
@@ -153,12 +150,7 @@ def main():
         }
         for idx, n in enumerate(args.concurrency):
             with cf.ThreadPoolExecutor(max_workers=n) as ex:
-                futs = [
-                    ex.submit(
-                        run_once, args.base_url, hifi_id, args.target_text, timeout
-                    )
-                    for _ in range(n)
-                ]
+                futs = [ex.submit(run_once, args.base_url, hifi_id, args.target_text, timeout) for _ in range(n)]
                 results = [f.result() for f in futs]
             out["runs"][str(n)] = {
                 "summary": summarize(results),

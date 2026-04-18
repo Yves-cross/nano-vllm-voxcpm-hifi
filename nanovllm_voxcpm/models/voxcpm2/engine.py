@@ -49,14 +49,10 @@ class VoxCPM2Engine(LLMEngineBase):
 
         self.block_size = config.kvcache_block_size
         self.max_model_len = config.max_model_len
-        self.tokenizer = mask_multichar_chinese_tokens(
-            LlamaTokenizerFast.from_pretrained(config.model)
-        )
+        self.tokenizer = mask_multichar_chinese_tokens(LlamaTokenizerFast.from_pretrained(config.model))
         super().__init__(VoxCPM2Runner, config, config.tensor_parallel_size)
 
-    def preprocess_seq(
-        self, seq: Sequence[VoxCPM2SeqPayload], is_prefill: bool
-    ) -> RunnerTask[VoxCPM2Payload]:
+    def preprocess_seq(self, seq: Sequence[VoxCPM2SeqPayload], is_prefill: bool) -> RunnerTask[VoxCPM2Payload]:
         if is_prefill:
             if len(seq.custom_payload.feats) > 1:
                 feats = np.concatenate(seq.custom_payload.feats, axis=0)
@@ -116,9 +112,7 @@ class VoxCPM2Engine(LLMEngineBase):
             payload,
         )
 
-    def postprocess_seq(
-        self, seq: Sequence[VoxCPM2SeqPayload], outputs: dict, is_prefill: bool
-    ):
+    def postprocess_seq(self, seq: Sequence[VoxCPM2SeqPayload], outputs: dict, is_prefill: bool):
         stop_flag = outputs["stop_flag"]
         latents = outputs["latents"]
         waveforms = outputs["waveforms"]
@@ -131,9 +125,9 @@ class VoxCPM2Engine(LLMEngineBase):
 
         latents = latents.reshape(-1, self.feat_dim)
         if seq.custom_payload.decode_pad is not None:
-            seq.custom_payload.decode_pad = np.concatenate(
-                [seq.custom_payload.decode_pad, latents], axis=0
-            )[-self.n_decode_pad_frames :]
+            seq.custom_payload.decode_pad = np.concatenate([seq.custom_payload.decode_pad, latents], axis=0)[
+                -self.n_decode_pad_frames :
+            ]
         else:
             seq.custom_payload.decode_pad = latents[-self.n_decode_pad_frames :]
 
@@ -141,8 +135,7 @@ class VoxCPM2Engine(LLMEngineBase):
             seq.stoped = True
         elif (
             seq.custom_payload.max_generate_length is not None
-            and len(seq.custom_payload.generated_waveforms)
-            >= seq.custom_payload.max_generate_length
+            and len(seq.custom_payload.generated_waveforms) >= seq.custom_payload.max_generate_length
         ):
             seq.stoped = True
 
@@ -158,16 +151,10 @@ class VoxCPM2Engine(LLMEngineBase):
         cfg_value: float = 1.0,
     ):
         if max_generate_length < 1:
-            raise ValueError(
-                f"max_generate_length must be >= 1, got {max_generate_length}"
-            )
+            raise ValueError(f"max_generate_length must be >= 1, got {max_generate_length}")
 
-        text_tokens = self.tokenizer(prompt_text + target_text) + [
-            self.audio_start_token
-        ]
-        audio_feat = np.zeros(
-            (len(text_tokens), self.patch_size, self.feat_dim), dtype=np.float32
-        )
+        text_tokens = self.tokenizer(prompt_text + target_text) + [self.audio_start_token]
+        audio_feat = np.zeros((len(text_tokens), self.patch_size, self.feat_dim), dtype=np.float32)
         feat_masks = [False for _ in range(len(text_tokens))]
         hash_tokens = [t for t in text_tokens]
         decode_pad = None
@@ -176,24 +163,15 @@ class VoxCPM2Engine(LLMEngineBase):
             wav_latents = ref_audio_latents
             wav_latents = wav_latents.reshape(-1, self.patch_size, self.feat_dim)
 
-            audio_feat_pad = np.zeros(
-                (1, self.patch_size, self.feat_dim), dtype=np.float32
-            )
-            audio_feat = np.concatenate(
-                [audio_feat_pad, wav_latents, audio_feat_pad, audio_feat], axis=0
-            )
+            audio_feat_pad = np.zeros((1, self.patch_size, self.feat_dim), dtype=np.float32)
+            audio_feat = np.concatenate([audio_feat_pad, wav_latents, audio_feat_pad, audio_feat], axis=0)
             text_tokens = (
                 [self.ref_audio_start_token]
                 + ([0 for _ in range(wav_latents.shape[0])])
                 + [self.ref_audio_end_token]
                 + text_tokens
             )
-            feat_masks = (
-                [False]
-                + ([True for _ in range(wav_latents.shape[0])])
-                + [False]
-                + feat_masks
-            )
+            feat_masks = [False] + ([True for _ in range(wav_latents.shape[0])]) + [False] + feat_masks
 
             prepend_hash_tokens = (
                 [self.ref_audio_start_token]
@@ -229,16 +207,8 @@ class VoxCPM2Engine(LLMEngineBase):
         if SEQ_TRACE_ENABLED:
             text_token_len = len(text_tokens)
             feat_mask_true = int(sum(1 for x in feat_masks if x))
-            prompt_latent_patches = (
-                0
-                if prompt_latents is None
-                else int(prompt_latents.shape[0] // self.patch_size)
-            )
-            ref_latent_patches = (
-                0
-                if ref_audio_latents is None
-                else int(ref_audio_latents.shape[0] // self.patch_size)
-            )
+            prompt_latent_patches = 0 if prompt_latents is None else int(prompt_latents.shape[0] // self.patch_size)
+            ref_latent_patches = 0 if ref_audio_latents is None else int(ref_audio_latents.shape[0] // self.patch_size)
             msg = (
                 f"voxcpm2_add_request_trace seq_id={seq_id} target_text_len={len(target_text)} prompt_text_len={len(prompt_text)} "
                 f"text_tokens={text_token_len} feat_true={feat_mask_true} prompt_patches={prompt_latent_patches} "

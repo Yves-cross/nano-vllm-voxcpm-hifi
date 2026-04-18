@@ -6,9 +6,7 @@ torch = pytest.importorskip("torch")
 def test_lora_linear_enable_disable_and_reset():
     from nanovllm_voxcpm.layers.lora import LoRALinear
 
-    layer = LoRALinear(
-        in_features=4, out_features=3, bias=False, lora_r=2, lora_alpha=2.0
-    )
+    layer = LoRALinear(in_features=4, out_features=3, bias=False, lora_r=2, lora_alpha=2.0)
     # Deterministic weights.
     with torch.no_grad():
         layer.weight.fill_(1.0)

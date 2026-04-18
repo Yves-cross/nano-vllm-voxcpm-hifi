@@ -152,9 +152,7 @@ class QKVParallelLinear(ColumnParallelLinear):
             shard_offset = self.num_heads * self.head_size
         else:
             shard_size = self.num_kv_heads * self.head_size
-            shard_offset = (
-                self.num_heads * self.head_size + self.num_kv_heads * self.head_size
-            )
+            shard_offset = self.num_heads * self.head_size + self.num_kv_heads * self.head_size
         param_data = param_data.narrow(self.tp_dim, shard_offset, shard_size)
         loaded_weight = loaded_weight.chunk(self.tp_size, self.tp_dim)[self.tp_rank]
         param_data.copy_(loaded_weight)

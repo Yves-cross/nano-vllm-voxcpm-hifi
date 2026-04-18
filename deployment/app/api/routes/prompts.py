@@ -24,15 +24,11 @@ logger = logging.getLogger("uvicorn.error")
         500: {"description": "Internal error", "model": ErrorResponse},
     },
 )
-async def add_prompt(
-    req: AddPromptRequest, server: Any = Depends(get_server)
-) -> AddPromptResponse:
+async def add_prompt(req: AddPromptRequest, server: Any = Depends(get_server)) -> AddPromptResponse:
     try:
         wav = base64.b64decode(req.wav_base64)
     except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid base64 in wav_base64: {e}"
-        ) from e
+        raise HTTPException(status_code=400, detail=f"Invalid base64 in wav_base64: {e}") from e
 
     t0 = perf_counter()
     prompt_id = await server.add_prompt(wav, req.wav_format, req.prompt_text)
@@ -67,7 +63,5 @@ async def delete_prompt(prompt_id: str, server: Any = Depends(get_server)):
     try:
         await server.remove_prompt(prompt_id)
     except KeyError as e:
-        raise HTTPException(
-            status_code=404, detail=f"Prompt with id {prompt_id} not found"
-        ) from e
+        raise HTTPException(status_code=404, detail=f"Prompt with id {prompt_id} not found") from e
     return None

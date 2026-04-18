@@ -177,10 +177,7 @@ async def _run_iteration(
     audio_s_stdev: float | None
     if sample_rate is not None and sample_rate > 0:
         audio_s_per_req = [r.total_samples / float(sample_rate) for r in results]
-        rtfs = [
-            r.wall_s / a if a > 0 else float("inf")
-            for r, a in zip(results, audio_s_per_req)
-        ]
+        rtfs = [r.wall_s / a if a > 0 else float("inf") for r, a in zip(results, audio_s_per_req)]
         audio_s_per_req_mean = _mean(audio_s_per_req)
         rtf_per_req_mean = _mean(rtfs)
 
@@ -238,9 +235,7 @@ def _stdev(xs: Iterable[float]) -> float:
 
 async def async_main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Benchmark VoxCPM inference speed")
-    p.add_argument(
-        "--model", required=True, help="Local model directory (or HF repo id)"
-    )
+    p.add_argument("--model", required=True, help="Local model directory (or HF repo id)")
     p.add_argument(
         "--devices",
         default="0",
@@ -254,16 +249,12 @@ async def async_main(argv: list[str] | None = None) -> int:
     p.add_argument("--enforce-eager", action="store_true")
 
     p.add_argument("--target-text", default=DEFAULT_TEXT)
-    p.add_argument(
-        "--target-text-file", default=None, help="Read target text from file (UTF-8)"
-    )
+    p.add_argument("--target-text-file", default=None, help="Read target text from file (UTF-8)")
     p.add_argument("--max-generate-length", type=int, default=2000)
     p.add_argument("--temperature", type=float, default=1.0)
     p.add_argument("--cfg-value", type=float, default=2.0)
 
-    p.add_argument(
-        "--concurrency", type=int, default=1, help="Number of concurrent requests"
-    )
+    p.add_argument("--concurrency", type=int, default=1, help="Number of concurrent requests")
     p.add_argument(
         "--warmup",
         type=int,
@@ -282,14 +273,10 @@ async def async_main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if not torch.cuda.is_available():
-        raise RuntimeError(
-            "CUDA is not available; this project does not support CPU-only benchmarking"
-        )
+        raise RuntimeError("CUDA is not available; this project does not support CPU-only benchmarking")
 
     if args.target_text_file is not None:
-        args.target_text = (
-            open(args.target_text_file, "r", encoding="utf-8").read().strip()
-        )
+        args.target_text = open(args.target_text_file, "r", encoding="utf-8").read().strip()
         if not args.target_text:
             raise ValueError("target text is empty")
 
@@ -380,12 +367,8 @@ async def async_main(argv: list[str] | None = None) -> int:
     audio_s_mean = [it.audio_s_mean for it in iters if it.audio_s_mean is not None]
     audio_s_stdev = [it.audio_s_stdev for it in iters if it.audio_s_stdev is not None]
 
-    audio_s_per_req_mean = [
-        it.audio_s_per_req_mean for it in iters if it.audio_s_per_req_mean is not None
-    ]
-    rtf_per_req_mean = [
-        it.rtf_per_req_mean for it in iters if it.rtf_per_req_mean is not None
-    ]
+    audio_s_per_req_mean = [it.audio_s_per_req_mean for it in iters if it.audio_s_per_req_mean is not None]
+    rtf_per_req_mean = [it.rtf_per_req_mean for it in iters if it.rtf_per_req_mean is not None]
 
     samples_per_s = [s / t for s, t in zip(total_samples, wall_s)]
     chunks_per_s = [c / t for c, t in zip(total_chunks, wall_s)]
@@ -408,46 +391,24 @@ async def async_main(argv: list[str] | None = None) -> int:
     print("Metrics (mean +/- stdev over measured iterations)")
     print(f"  wall_s: {_fmt_float(_mean(wall_s))} +/- {_fmt_float(_stdev(wall_s))}")
     if audio_s_total is not None:
-        print(
-            f"  audio_s_total: {_fmt_float(_mean(audio_s_total))} +/- {_fmt_float(_stdev(audio_s_total))}"
-        )
+        print(f"  audio_s_total: {_fmt_float(_mean(audio_s_total))} +/- {_fmt_float(_stdev(audio_s_total))}")
     if audio_s_per_req_mean:
         print(
             f"  audio_s_per_req_mean: {_fmt_float(_mean(audio_s_per_req_mean))} +/- {_fmt_float(_stdev(audio_s_per_req_mean))}"
         )
     if audio_s_p50:
         print("  audio_s_per_req_dist (seconds):")
-        print(
-            f"    p50: {_fmt_float(_mean(audio_s_p50))} +/- {_fmt_float(_stdev(audio_s_p50))}"
-        )
-        print(
-            f"    p90: {_fmt_float(_mean(audio_s_p90))} +/- {_fmt_float(_stdev(audio_s_p90))}"
-        )
-        print(
-            f"    p95: {_fmt_float(_mean(audio_s_p95))} +/- {_fmt_float(_stdev(audio_s_p95))}"
-        )
-        print(
-            f"    p99: {_fmt_float(_mean(audio_s_p99))} +/- {_fmt_float(_stdev(audio_s_p99))}"
-        )
-        print(
-            f"    mean +/- stdev: {_fmt_float(_mean(audio_s_mean))} +/- {_fmt_float(_mean(audio_s_stdev))}"
-        )
+        print(f"    p50: {_fmt_float(_mean(audio_s_p50))} +/- {_fmt_float(_stdev(audio_s_p50))}")
+        print(f"    p90: {_fmt_float(_mean(audio_s_p90))} +/- {_fmt_float(_stdev(audio_s_p90))}")
+        print(f"    p95: {_fmt_float(_mean(audio_s_p95))} +/- {_fmt_float(_stdev(audio_s_p95))}")
+        print(f"    p99: {_fmt_float(_mean(audio_s_p99))} +/- {_fmt_float(_stdev(audio_s_p99))}")
+        print(f"    mean +/- stdev: {_fmt_float(_mean(audio_s_mean))} +/- {_fmt_float(_mean(audio_s_stdev))}")
     if rtf_per_req_mean:
-        print(
-            f"  RTF_per_req_mean: {_fmt_float(_mean(rtf_per_req_mean))} +/- {_fmt_float(_stdev(rtf_per_req_mean))}"
-        )
-    print(
-        f"  samples/s: {_fmt_float(_mean(samples_per_s))} +/- {_fmt_float(_stdev(samples_per_s))}"
-    )
-    print(
-        f"  chunks/s: {_fmt_float(_mean(chunks_per_s))} +/- {_fmt_float(_stdev(chunks_per_s))}"
-    )
-    print(
-        f"  TTFB p50 (s): {_fmt_float(_mean(ttfb_p50_s))} +/- {_fmt_float(_stdev(ttfb_p50_s))}"
-    )
-    print(
-        f"  TTFB p90 (s): {_fmt_float(_mean(ttfb_p90_s))} +/- {_fmt_float(_stdev(ttfb_p90_s))}"
-    )
+        print(f"  RTF_per_req_mean: {_fmt_float(_mean(rtf_per_req_mean))} +/- {_fmt_float(_stdev(rtf_per_req_mean))}")
+    print(f"  samples/s: {_fmt_float(_mean(samples_per_s))} +/- {_fmt_float(_stdev(samples_per_s))}")
+    print(f"  chunks/s: {_fmt_float(_mean(chunks_per_s))} +/- {_fmt_float(_stdev(chunks_per_s))}")
+    print(f"  TTFB p50 (s): {_fmt_float(_mean(ttfb_p50_s))} +/- {_fmt_float(_stdev(ttfb_p50_s))}")
+    print(f"  TTFB p90 (s): {_fmt_float(_mean(ttfb_p90_s))} +/- {_fmt_float(_stdev(ttfb_p90_s))}")
 
     payload: dict[str, Any] = {
         "args": vars(args),
@@ -502,9 +463,7 @@ async def async_main(argv: list[str] | None = None) -> int:
         )
 
     if args.json_out is not None:
-        os.makedirs(
-            os.path.dirname(os.path.abspath(args.json_out)) or ".", exist_ok=True
-        )
+        os.makedirs(os.path.dirname(os.path.abspath(args.json_out)) or ".", exist_ok=True)
         with open(args.json_out, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=True, indent=2)
 

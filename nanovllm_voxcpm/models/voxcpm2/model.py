@@ -50,26 +50,16 @@ class MiniCPMLongRoPE(nn.Module):
         self.base = base
         self.short_factor = short_factor or [1.0] * (head_size // 2)
         self.long_factor = long_factor or [1.0] * (head_size // 2)
-        self.original_max_position_embeddings = (
-            original_max_position_embeddings or max_position_embeddings
-        )
+        self.original_max_position_embeddings = original_max_position_embeddings or max_position_embeddings
         scale = max_position_embeddings / self.original_max_position_embeddings
-        self.scaling_factor = math.sqrt(
-            1 + math.log(scale) / math.log(self.original_max_position_embeddings)
-        )
-        inv_freq = 1.0 / (
-            self.base ** (torch.arange(0, self.dim, 2).float() / self.dim)
-        )
+        self.scaling_factor = math.sqrt(1 + math.log(scale) / math.log(self.original_max_position_embeddings))
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float() / self.dim))
         self.register_buffer("inv_freq", inv_freq, persistent=False)
-        self._set_cos_sin_cache(
-            max_position_embeddings, self.inv_freq.device, torch.float32
-        )
+        self._set_cos_sin_cache(max_position_embeddings, self.inv_freq.device, torch.float32)
 
     def _set_cos_sin_cache(self, seq_len, device, dtype):
         self.max_seq_len_cached = seq_len
-        t = torch.arange(
-            self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype
-        )
+        t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
         ext_factors = (
             torch.tensor(self.long_factor, dtype=torch.float32, device=device)
             if seq_len > self.original_max_position_embeddings
@@ -80,16 +70,10 @@ class MiniCPMLongRoPE(nn.Module):
             self.inv_freq.to(device=device).to(dtype),
         )
         emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer(
-            "cos_cached", emb.cos().to(dtype) * self.scaling_factor, persistent=False
-        )
-        self.register_buffer(
-            "sin_cached", emb.sin().to(dtype) * self.scaling_factor, persistent=False
-        )
+        self.register_buffer("cos_cached", emb.cos().to(dtype) * self.scaling_factor, persistent=False)
+        self.register_buffer("sin_cached", emb.sin().to(dtype) * self.scaling_factor, persistent=False)
 
-    def _apply_rotary_emb(
-        self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
-    ) -> torch.Tensor:
+    def _apply_rotary_emb(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
         cos = cos.unsqueeze(1)
         sin = sin.unsqueeze(1)
         orig_dtype = x.dtype
@@ -107,18 +91,12 @@ class MiniCPMLongRoPE(nn.Module):
         sin = self.sin_cached[positions]
         query_shape = query.shape
         key_shape = key.shape
-        query = self._apply_rotary_emb(
-            query.reshape(num_tokens, -1, self.dim), cos, sin
-        ).view(query_shape)
-        key = self._apply_rotary_emb(
-            key.reshape(num_tokens, -1, self.dim), cos, sin
-        ).view(key_shape)
+        query = self._apply_rotary_emb(query.reshape(num_tokens, -1, self.dim), cos, sin).view(query_shape)
+        key = self._apply_rotary_emb(key.reshape(num_tokens, -1, self.dim), cos, sin).view(key_shape)
         return query, key
 
 
-def get_cpm4_rope(
-    head_size: int, rotary_dim: int, max_position: int, base: float, rope_scaling=None
-):
+def get_cpm4_rope(head_size: int, rotary_dim: int, max_position: int, base: float, rope_scaling=None):
     return MiniCPMLongRoPE(
         head_size=head_size,
         rotary_dim=rotary_dim,
@@ -126,9 +104,7 @@ def get_cpm4_rope(
         base=base,
         short_factor=rope_scaling.short_factor if rope_scaling else None,
         long_factor=rope_scaling.long_factor if rope_scaling else None,
-        original_max_position_embeddings=(
-            rope_scaling.original_max_position_embeddings if rope_scaling else None
-        ),
+        original_max_position_embeddings=(rope_scaling.original_max_position_embeddings if rope_scaling else None),
     )
 
 
@@ -167,11 +143,7 @@ class Cpm4Attention(nn.Module):
         lora_r = lora_config.r if lora_config else 0
         lora_alpha = lora_config.alpha if lora_config else 16.0
         lora_targets = lora_config.target_modules_lm if lora_config else []
-        qkv_lora_targets = [
-            t.replace("_proj", "")
-            for t in lora_targets
-            if t in ["q_proj", "k_proj", "v_proj"]
-        ]
+        qkv_lora_targets = [t.replace("_proj", "") for t in lora_targets if t in ["q_proj", "k_proj", "v_proj"]]
         if lora_r > 0 and qkv_lora_targets:
             self.qkv_proj = LoRAQKVParallelLinear(
                 hidden_size,
@@ -201,9 +173,7 @@ class Cpm4Attention(nn.Module):
                 lora_alpha=lora_alpha,
             )
         else:
-            self.o_proj = RowParallelLinear(
-                self.total_num_heads * self.head_dim, hidden_size, bias=qkv_bias
-            )
+            self.o_proj = RowParallelLinear(self.total_num_heads * self.head_dim, hidden_size, bias=qkv_bias)
 
         self.rotary_emb = (
             get_cpm4_rope(
@@ -223,25 +193,17 @@ class Cpm4Attention(nn.Module):
             self.num_kv_heads,
             is_causal=self.is_causal,
         )
-        self.q_norm = (
-            RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
-        )
-        self.k_norm = (
-            RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
-        )
+        self.q_norm = RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
+        self.k_norm = RMSNorm(self.head_dim, eps=rms_norm_eps) if self.apply_qk_norm else None
 
-    def forward(
-        self, positions: torch.Tensor, hidden_states: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, positions: torch.Tensor, hidden_states: torch.Tensor) -> torch.Tensor:
         qkv = self.qkv_proj(hidden_states)
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
         rotary_emb = self.rotary_emb
         if self.is_causal:
             if self.q_norm is not None:
                 q = self.q_norm(q.view(-1, self.num_heads, self.head_dim)).view(q.shape)
-                k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(
-                    k.shape
-                )
+                k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(k.shape)
             if rotary_emb is not None:
                 q, k = rotary_emb(positions, q, k)
             q = q.view(-1, self.num_heads, self.head_dim)
@@ -251,9 +213,7 @@ class Cpm4Attention(nn.Module):
             bsz = q.size(0)
             if self.q_norm is not None:
                 q = self.q_norm(q.view(-1, self.num_heads, self.head_dim)).view(q.shape)
-                k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(
-                    k.shape
-                )
+                k = self.k_norm(k.view(-1, self.num_kv_heads, self.head_dim)).view(k.shape)
             if rotary_emb is not None:
                 q, k = rotary_emb(positions.repeat(bsz), q, k)
             q = q.view(bsz, -1, self.num_heads, self.head_dim)
@@ -261,9 +221,7 @@ class Cpm4Attention(nn.Module):
             v = v.view(bsz, -1, self.num_kv_heads, self.head_dim)
         out = self.attn(q, k, v)
         out = out.view(
-            (-1, self.num_heads * self.head_dim)
-            if self.is_causal
-            else (bsz, -1, self.num_heads * self.head_dim)
+            (-1, self.num_heads * self.head_dim) if self.is_causal else (bsz, -1, self.num_heads * self.head_dim)
         )
         return self.o_proj(out)
 
@@ -294,9 +252,7 @@ class Cpm4MLP(nn.Module):
                 lora_targets=gate_up_lora_targets,
             )
         else:
-            self.gate_up_proj = MergedColumnParallelLinear(
-                hidden_size, [intermediate_size] * 2, bias=False
-            )
+            self.gate_up_proj = MergedColumnParallelLinear(hidden_size, [intermediate_size] * 2, bias=False)
         self.down_proj = (
             LoRARowParallelLinear(
                 intermediate_size,
@@ -338,13 +294,9 @@ class Cpm4DecoderLayer(nn.Module):
             apply_qk_norm=getattr(config, "apply_qk_norm", False),
             lora_config=lora_config,
         )
-        self.mlp = Cpm4MLP(
-            config.hidden_size, config.intermediate_size, lora_config=lora_config
-        )
+        self.mlp = Cpm4MLP(config.hidden_size, config.intermediate_size, lora_config=lora_config)
         self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(
-            config.hidden_size, eps=config.rms_norm_eps
-        )
+        self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
         self,
@@ -372,9 +324,7 @@ class Cpm4Model(nn.Module):
         super().__init__()
         self.config = config
         self.embed_tokens = (
-            VocabParallelEmbedding(config.vocab_size, config.hidden_size)
-            if config.vocab_size > 0
-            else nn.Identity()
+            VocabParallelEmbedding(config.vocab_size, config.hidden_size) if config.vocab_size > 0 else nn.Identity()
         )
         self.layers = nn.ModuleList(
             [
@@ -384,9 +334,7 @@ class Cpm4Model(nn.Module):
         )
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
-    def forward(
-        self, input_embeds: torch.Tensor, positions: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, input_embeds: torch.Tensor, positions: torch.Tensor) -> torch.Tensor:
         hidden_states = input_embeds
         residual = None
         for layer in self.layers:
@@ -410,9 +358,7 @@ class SinusoidalPosEmb(nn.Module):
 
 
 class TimestepEmbedding(nn.Module):
-    def __init__(
-        self, in_channels: int, time_embed_dim: int, out_dim: int | None = None
-    ):
+    def __init__(self, in_channels: int, time_embed_dim: int, out_dim: int | None = None):
         super().__init__()
         time_embed_dim_out = out_dim if out_dim is not None else time_embed_dim
         self.linear_1 = nn.Linear(in_channels, time_embed_dim, bias=True)
@@ -468,9 +414,7 @@ class VoxCPM2LocDiT(nn.Module):
         t = t + dt
         mu = mu.view(x.size(0), -1, x.size(-1))
         hidden = torch.cat([mu, t.unsqueeze(1), cond, x], dim=1)
-        position_ids = torch.arange(
-            0, hidden.size(1), dtype=torch.long, device=hidden.device
-        )
+        position_ids = torch.arange(0, hidden.size(1), dtype=torch.long, device=hidden.device)
         hidden = self.decoder(hidden, position_ids)
         hidden = self.out_proj(hidden[:, prefix + mu.size(1) + 1 :, :])
         return hidden.transpose(1, 2).contiguous()
@@ -501,13 +445,9 @@ class UnifiedCFM(nn.Module):
         cfg_value: torch.Tensor,
     ):
         bsz = mu.shape[0]
-        z = torch.randn(
-            (bsz, self.in_channels, self.patch_size), device=mu.device, dtype=mu.dtype
-        )
+        z = torch.randn((bsz, self.in_channels, self.patch_size), device=mu.device, dtype=mu.dtype)
         z = z * temperature[:, None, None]
-        t_span = torch.linspace(
-            1, 0, self.inference_timesteps + 1, device=mu.device, dtype=mu.dtype
-        )
+        t_span = torch.linspace(1, 0, self.inference_timesteps + 1, device=mu.device, dtype=mu.dtype)
         t_span = t_span + (torch.cos(torch.pi / 2 * t_span) - 1 + t_span)
         return self.solve_euler(z, t_span=t_span, mu=mu, cond=cond, cfg_value=cfg_value)
 
@@ -536,9 +476,7 @@ class UnifiedCFM(nn.Module):
                     device=x.device,
                     dtype=x.dtype,
                 )
-                mu_in = torch.zeros(
-                    [2 * bsz, mu.size(1)], device=x.device, dtype=x.dtype
-                )
+                mu_in = torch.zeros([2 * bsz, mu.size(1)], device=x.device, dtype=x.dtype)
                 t_in = torch.zeros([2 * bsz], device=x.device, dtype=x.dtype)
                 dt_in = torch.zeros([2 * bsz], device=x.device, dtype=x.dtype)
                 cond_in = torch.zeros(
@@ -554,16 +492,10 @@ class UnifiedCFM(nn.Module):
                     dt_in = torch.zeros_like(dt_in)
                 cond_in[:bsz], cond_in[bsz:] = cond, cond
                 dphi_dt = self.estimator(x_in, mu_in, t_in, cond_in, dt_in)
-                dphi_dt, cfg_dphi_dt = torch.split(
-                    dphi_dt, [x.size(0), x.size(0)], dim=0
-                )
-                st_star = self.optimized_scale(
-                    dphi_dt.view(bsz, -1), cfg_dphi_dt.view(bsz, -1)
-                )
+                dphi_dt, cfg_dphi_dt = torch.split(dphi_dt, [x.size(0), x.size(0)], dim=0)
+                st_star = self.optimized_scale(dphi_dt.view(bsz, -1), cfg_dphi_dt.view(bsz, -1))
                 st_star = st_star.view(bsz, *([1] * (len(dphi_dt.shape) - 1)))
-                dphi_dt = cfg_dphi_dt * st_star + cfg_value[:, None, None] * (
-                    dphi_dt - cfg_dphi_dt * st_star
-                )
+                dphi_dt = cfg_dphi_dt * st_star + cfg_value[:, None, None] * (dphi_dt - cfg_dphi_dt * st_star)
             x = x - dt * dphi_dt
             t = t - dt
             sol = x
@@ -624,9 +556,7 @@ class VoxCPM2Model(nn.Module):
         self.patch_size = config.patch_size
         assert not self.config.lm_config.use_mup, "mup inference is not supported now"
 
-        lm_lora_config = (
-            lora_config if (lora_config and lora_config.enable_lm) else None
-        )
+        lm_lora_config = lora_config if (lora_config and lora_config.enable_lm) else None
         self.base_lm = Cpm4Model(config.lm_config, lora_config=lm_lora_config)
 
         residual_lm_config = config.lm_config.model_copy(deep=True)
@@ -659,9 +589,7 @@ class VoxCPM2Model(nn.Module):
             patch_size=config.patch_size,
             inference_timesteps=inference_timesteps,
             cfm_params=config.dit_config.cfm_config,
-            estimator=VoxCPM2LocDiT(
-                decoder_config, in_channels=config.feat_dim, lora_config=lora_config
-            ),
+            estimator=VoxCPM2LocDiT(decoder_config, in_channels=config.feat_dim, lora_config=lora_config),
             mean_mode=config.dit_mean_mode,
         )
 
@@ -683,9 +611,7 @@ class VoxCPM2Model(nn.Module):
                 lora_alpha=proj_lora_alpha,
             )
             if proj_lora_r > 0 and "enc_to_lm_proj" in proj_targets
-            else nn.Linear(
-                config.encoder_config.hidden_dim, config.lm_config.hidden_size
-            )
+            else nn.Linear(config.encoder_config.hidden_dim, config.lm_config.hidden_size)
         )
         self.lm_to_dit_proj = (
             LoRALinear(
@@ -715,14 +641,10 @@ class VoxCPM2Model(nn.Module):
                 lora_alpha=proj_lora_alpha,
             )
             if proj_lora_r > 0 and "fusion_concat_proj" in proj_targets
-            else nn.Linear(
-                config.lm_config.hidden_size * 2, config.lm_config.hidden_size
-            )
+            else nn.Linear(config.lm_config.hidden_size * 2, config.lm_config.hidden_size)
         )
 
-        self.stop_proj = nn.Linear(
-            config.lm_config.hidden_size, config.lm_config.hidden_size
-        )
+        self.stop_proj = nn.Linear(config.lm_config.hidden_size, config.lm_config.hidden_size)
         self.stop_actn = nn.SiLU()
         self.stop_head = nn.Linear(config.lm_config.hidden_size, 2, bias=False)
 
@@ -736,15 +658,11 @@ class VoxCPM2Model(nn.Module):
         cfg_value: torch.Tensor,
     ):
         feat_embeds = self.enc_to_lm_proj(self.feat_encoder(feat))
-        feat_embeds = torch.masked_fill(
-            feat_embeds, feat_mask.unsqueeze(-1).logical_not(), 0
-        )
+        feat_embeds = torch.masked_fill(feat_embeds, feat_mask.unsqueeze(-1).logical_not(), 0)
         text_embeds = self.base_lm.embed_tokens(text_tokens)
         combined_embeds = torch.where(feat_mask.unsqueeze(-1), feat_embeds, text_embeds)
         enc_outputs = self.base_lm(combined_embeds, positions)
-        enc_outputs = torch.where(
-            feat_mask.unsqueeze(-1), self.fsq_layer(enc_outputs), enc_outputs
-        )
+        enc_outputs = torch.where(feat_mask.unsqueeze(-1), self.fsq_layer(enc_outputs), enc_outputs)
 
         context = get_context()
         if context.is_prefill:
@@ -768,18 +686,14 @@ class VoxCPM2Model(nn.Module):
             ralm_hidden = ralm_outputs
             prefix_feat_cond = feat
 
-        dit_hidden = torch.cat(
-            [self.lm_to_dit_proj(lm_hidden), self.res_to_dit_proj(ralm_hidden)], dim=-1
-        )
+        dit_hidden = torch.cat([self.lm_to_dit_proj(lm_hidden), self.res_to_dit_proj(ralm_hidden)], dim=-1)
         pred_feat = self.feat_decoder(
             mu=dit_hidden,
             cond=prefix_feat_cond.transpose(1, 2).contiguous(),
             temperature=temperature,
             cfg_value=cfg_value,
         ).transpose(1, 2)
-        stop_flag = self.stop_head(self.stop_actn(self.stop_proj(lm_hidden))).argmax(
-            dim=-1
-        )
+        stop_flag = self.stop_head(self.stop_actn(self.stop_proj(lm_hidden))).argmax(dim=-1)
         return {"latents": pred_feat, "stop_flag": stop_flag}
 
     def set_lora_enabled(self, enabled: bool):

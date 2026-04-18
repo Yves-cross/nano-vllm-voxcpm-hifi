@@ -52,9 +52,7 @@ def _get_int_list_env(name: str, default: tuple[int, ...]) -> tuple[int, ...]:
         try:
             out.append(int(p))
         except ValueError as e:
-            raise RuntimeError(
-                f"Invalid env {name}={v!r}; expected comma-separated ints"
-            ) from e
+            raise RuntimeError(f"Invalid env {name}={v!r}; expected comma-separated ints") from e
     return tuple(out)
 
 
@@ -101,9 +99,7 @@ class ServiceConfig:
 
 
 def load_config() -> ServiceConfig:
-    model_path = os.path.expanduser(
-        os.environ.get("NANOVLLM_MODEL_PATH", "~/VoxCPM1.5")
-    )
+    model_path = os.path.expanduser(os.environ.get("NANOVLLM_MODEL_PATH", "~/VoxCPM1.5"))
 
     mp3_bitrate_kbps = _get_int_env("NANOVLLM_MP3_BITRATE_KBPS", 192)
     mp3_quality = _get_int_env("NANOVLLM_MP3_QUALITY", 2)
@@ -115,25 +111,17 @@ def load_config() -> ServiceConfig:
     lora_uri = os.environ.get("NANOVLLM_LORA_URI")
     lora_id = os.environ.get("NANOVLLM_LORA_ID")
     lora_sha256 = os.environ.get("NANOVLLM_LORA_SHA256")
-    cache_dir = os.path.expanduser(
-        os.environ.get("NANOVLLM_CACHE_DIR", "~/.cache/nanovllm")
-    )
+    cache_dir = os.path.expanduser(os.environ.get("NANOVLLM_CACHE_DIR", "~/.cache/nanovllm"))
 
     if lora_uri and not lora_id:
         raise RuntimeError("NANOVLLM_LORA_ID is required when NANOVLLM_LORA_URI is set")
 
     # Server pool startup config (read at startup).
-    pool_inference_timesteps = _get_int_env(
-        "NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS", 10
-    )
-    pool_max_num_batched_tokens = _get_int_env(
-        "NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS", 8192
-    )
+    pool_inference_timesteps = _get_int_env("NANOVLLM_SERVERPOOL_INFERENCE_TIMESTEPS", 10)
+    pool_max_num_batched_tokens = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS", 8192)
     pool_max_num_seqs = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_SEQS", 16)
     pool_max_model_len = _get_int_env("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN", 4096)
-    pool_gpu_memory_utilization = _get_float_env(
-        "NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", 0.95
-    )
+    pool_gpu_memory_utilization = _get_float_env("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", 0.95)
     pool_enforce_eager = _get_bool_env("NANOVLLM_SERVERPOOL_ENFORCE_EAGER", False)
     pool_devices = _get_int_list_env("NANOVLLM_SERVERPOOL_DEVICES", (0,))
 
@@ -146,9 +134,7 @@ def load_config() -> ServiceConfig:
     if pool_max_model_len <= 0:
         raise RuntimeError("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN must be > 0")
     if not (0.0 < pool_gpu_memory_utilization <= 1.0):
-        raise RuntimeError(
-            "NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION must be in (0, 1]"
-        )
+        raise RuntimeError("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION must be in (0, 1]")
     if len(pool_devices) == 0:
         raise RuntimeError("NANOVLLM_SERVERPOOL_DEVICES must be a non-empty list")
     if any(d < 0 for d in pool_devices):
@@ -156,9 +142,7 @@ def load_config() -> ServiceConfig:
 
     warmup_enabled = _get_bool_env("NANOVLLM_WARMUP_ENABLED", True)
     warmup_text = os.environ.get("NANOVLLM_WARMUP_TEXT", "你好")
-    warmup_max_generate_length = _get_int_env(
-        "NANOVLLM_WARMUP_MAX_GENERATE_LENGTH", 128
-    )
+    warmup_max_generate_length = _get_int_env("NANOVLLM_WARMUP_MAX_GENERATE_LENGTH", 128)
     warmup_delay_sec = _get_float_env("NANOVLLM_WARMUP_DELAY_SEC", 1.0)
     if warmup_max_generate_length <= 0:
         raise RuntimeError("NANOVLLM_WARMUP_MAX_GENERATE_LENGTH must be > 0")
@@ -168,9 +152,7 @@ def load_config() -> ServiceConfig:
     return ServiceConfig(
         model_path=model_path,
         mp3=Mp3Config(bitrate_kbps=mp3_bitrate_kbps, quality=mp3_quality),
-        lora=LoRAStartupConfig(
-            uri=lora_uri, lora_id=lora_id, sha256=lora_sha256, cache_dir=cache_dir
-        ),
+        lora=LoRAStartupConfig(uri=lora_uri, lora_id=lora_id, sha256=lora_sha256, cache_dir=cache_dir),
         server_pool=ServerPoolStartupConfig(
             inference_timesteps=pool_inference_timesteps,
             max_num_batched_tokens=pool_max_num_batched_tokens,

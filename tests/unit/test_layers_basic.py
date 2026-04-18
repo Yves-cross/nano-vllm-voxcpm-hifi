@@ -20,9 +20,7 @@ def test_sampler_shapes_and_range():
 def test_rotary_embedding_preserves_shapes():
     from nanovllm_voxcpm.layers.rotary_embedding import RotaryEmbedding
 
-    rope = RotaryEmbedding(
-        head_size=8, rotary_dim=8, max_position_embeddings=32, base=10000.0
-    )
+    rope = RotaryEmbedding(head_size=8, rotary_dim=8, max_position_embeddings=32, base=10000.0)
     positions = torch.tensor([0, 1, 2], dtype=torch.long)
     q = torch.randn(3, 1, 8)
     k = torch.randn(3, 1, 8)

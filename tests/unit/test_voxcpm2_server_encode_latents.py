@@ -29,9 +29,7 @@ def test_encode_latents_uses_librosa_resample(monkeypatch):
         captured["mono"] = mono
         return np.array([0.1, 0.2, 0.3], dtype=np.float32), sr
 
-    monkeypatch.setattr(
-        "nanovllm_voxcpm.models.voxcpm2.server.librosa.load", _fake_librosa_load
-    )
+    monkeypatch.setattr("nanovllm_voxcpm.models.voxcpm2.server.librosa.load", _fake_librosa_load)
     monkeypatch.setattr(torch.Tensor, "cuda", lambda self: self, raising=False)
 
     out = server.encode_latents(b"fake-wav-bytes", wav_format="wav")

@@ -7,9 +7,7 @@ import aiohttp
 API_BASE = "http://localhost:8760"
 
 
-async def encode_latents(
-    session: aiohttp.ClientSession, wav_path: Path, wav_format: str
-) -> dict:
+async def encode_latents(session: aiohttp.ClientSession, wav_path: Path, wav_format: str) -> dict:
     wav_b64 = base64.b64encode(wav_path.read_bytes()).decode("utf-8")
     async with session.post(
         f"{API_BASE}/encode_latents",
@@ -22,9 +20,7 @@ async def encode_latents(
         return await resp.json()
 
 
-async def generate_mp3(
-    session: aiohttp.ClientSession, payload: dict, out_path: Path
-) -> None:
+async def generate_mp3(session: aiohttp.ClientSession, payload: dict, out_path: Path) -> None:
     async with session.post(f"{API_BASE}/generate", json=payload) as resp:
         resp.raise_for_status()
         with out_path.open("wb") as f:
@@ -76,9 +72,7 @@ async def main() -> None:
             ]
         )
 
-        await asyncio.gather(
-            *[generate_mp3(session, payload, out_path) for payload, out_path in jobs]
-        )
+        await asyncio.gather(*[generate_mp3(session, payload, out_path) for payload, out_path in jobs])
 
 
 if __name__ == "__main__":

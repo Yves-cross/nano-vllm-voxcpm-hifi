@@ -24,9 +24,7 @@ def test_from_pretrained_uses_local_path_and_dispatches(
     hub = types.ModuleType("huggingface_hub")
 
     def _snapshot_download(*args, **kwargs):  # pragma: no cover
-        raise AssertionError(
-            "snapshot_download should not be called for local model paths"
-        )
+        raise AssertionError("snapshot_download should not be called for local model paths")
 
     setattr(cast(Any, hub), "snapshot_download", _snapshot_download)
     monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
@@ -51,9 +49,7 @@ def test_from_pretrained_uses_local_path_and_dispatches(
 
     model_dir = tmp_path / "model"
     model_dir.mkdir()
-    (model_dir / "config.json").write_text(
-        json.dumps({"architecture": architecture}), encoding="utf-8"
-    )
+    (model_dir / "config.json").write_text(json.dumps({"architecture": architecture}), encoding="utf-8")
 
     sys.modules.pop("nanovllm_voxcpm.llm", None)
     llm = importlib.import_module("nanovllm_voxcpm.llm")

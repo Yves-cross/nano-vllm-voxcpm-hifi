@@ -6,9 +6,7 @@ torch = pytest.importorskip("torch")
 def test_runner_task_properties():
     from nanovllm_voxcpm.engine.model_runner import RunnerTask
 
-    t = RunnerTask(
-        block_table=[0, 1, 2], seq_length=600, num_cached_tokens=512, block_size=256
-    )
+    t = RunnerTask(block_table=[0, 1, 2], seq_length=600, num_cached_tokens=512, block_size=256)
     assert t.num_blocks == 3
     assert t.num_cached_blocks == 2
     assert t.last_block_num_tokens == 88

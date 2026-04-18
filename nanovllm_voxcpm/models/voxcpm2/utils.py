@@ -5,9 +5,7 @@ from transformers import PreTrainedTokenizer
 
 def mask_multichar_chinese_tokens(tokenizer: PreTrainedTokenizer):
     multichar_tokens = {
-        token
-        for token in tokenizer.vocab.keys()
-        if len(token) >= 2 and all("\u4e00" <= c <= "\u9fff" for c in token)
+        token for token in tokenizer.vocab.keys() if len(token) >= 2 and all("\u4e00" <= c <= "\u9fff" for c in token)
     }
 
     class CharTokenizerWrapper:

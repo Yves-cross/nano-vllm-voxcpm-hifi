@@ -71,9 +71,7 @@ class Scheduler:
     def __init__(self, config: Config):
         self.max_num_seqs = config.max_num_seqs
         self.max_num_batched_tokens = config.max_num_batched_tokens
-        self.block_manager = BlockManager(
-            config.num_kvcache_blocks, config.kvcache_block_size
-        )
+        self.block_manager = BlockManager(config.num_kvcache_blocks, config.kvcache_block_size)
         self.waiting: deque[Sequence] = deque()
         self.running: deque[Sequence] = deque()
 
@@ -107,9 +105,7 @@ class Scheduler:
         num_batched_tokens = 0
         while self.waiting and num_seqs < self.max_num_seqs:
             seq = self.waiting[0]
-            if num_batched_tokens + len(
-                seq
-            ) > self.max_num_batched_tokens or not self.block_manager.can_allocate(seq):
+            if num_batched_tokens + len(seq) > self.max_num_batched_tokens or not self.block_manager.can_allocate(seq):
                 break
 
             self.block_manager.allocate(seq)

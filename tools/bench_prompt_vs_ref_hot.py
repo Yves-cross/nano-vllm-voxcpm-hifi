@@ -10,15 +10,11 @@ from typing import Any
 import requests
 
 
-def stream_generate(
-    base_url: str, payload: dict[str, Any], timeout: tuple[int, int] = (10, 120)
-) -> dict[str, Any]:
+def stream_generate(base_url: str, payload: dict[str, Any], timeout: tuple[int, int] = (10, 120)) -> dict[str, Any]:
     t0 = time.time()
     first = None
     size = 0
-    with requests.post(
-        base_url + "/generate", json=payload, stream=True, timeout=timeout
-    ) as r:
+    with requests.post(base_url + "/generate", json=payload, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         for chunk in r.iter_content(chunk_size=16384):
             if not chunk:
@@ -46,14 +42,10 @@ def add_reference(base_url: str, ref_b64: str, wav_format: str) -> tuple[str, fl
 
 
 def delete_reference(base_url: str, reference_id: str) -> int:
-    return requests.delete(
-        base_url + f"/references/{reference_id}", timeout=30
-    ).status_code
+    return requests.delete(base_url + f"/references/{reference_id}", timeout=30).status_code
 
 
-def add_prompt(
-    base_url: str, ref_b64: str, wav_format: str, prompt_text: str
-) -> tuple[str, float]:
+def add_prompt(base_url: str, ref_b64: str, wav_format: str, prompt_text: str) -> tuple[str, float]:
     t0 = time.time()
     r = requests.post(
         base_url + "/add_prompt",
@@ -102,13 +94,9 @@ def main() -> None:
 
     ref = args.ref_wav
     if not ref:
-        cands = sorted(
-            glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True
-        )
+        cands = sorted(glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True)
         if not cands:
-            raise SystemExit(
-                "no reference wav found under /tmp/gradio/*/audio.wav; pass --ref-wav"
-            )
+            raise SystemExit("no reference wav found under /tmp/gradio/*/audio.wav; pass --ref-wav")
         ref = cands[0]
 
     with open(ref, "rb") as f:
@@ -140,11 +128,7 @@ def main() -> None:
     ref_runs = []
     try:
         for _ in range(args.runs):
-            ref_runs.append(
-                stream_generate(
-                    args.base_url, {"target_text": args.text, "ref_audio_id": ref_id}
-                )
-            )
+            ref_runs.append(stream_generate(args.base_url, {"target_text": args.text, "ref_audio_id": ref_id}))
     finally:
         ref_delete = delete_reference(args.base_url, ref_id)
     out["routes"]["ref_audio_id"] = {
@@ -153,17 +137,11 @@ def main() -> None:
         "runs": ref_runs,
     }
 
-    prompt_id, add_prompt_sec = add_prompt(
-        args.base_url, ref_b64, args.wav_format, prompt_text
-    )
+    prompt_id, add_prompt_sec = add_prompt(args.base_url, ref_b64, args.wav_format, prompt_text)
     prompt_runs = []
     try:
         for _ in range(args.runs):
-            prompt_runs.append(
-                stream_generate(
-                    args.base_url, {"target_text": args.text, "prompt_id": prompt_id}
-                )
-            )
+            prompt_runs.append(stream_generate(args.base_url, {"target_text": args.text, "prompt_id": prompt_id}))
     finally:
         prompt_delete = delete_prompt(args.base_url, prompt_id)
     out["routes"]["prompt_id"] = {

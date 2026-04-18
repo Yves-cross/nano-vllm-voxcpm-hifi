@@ -234,12 +234,12 @@ def summarize(name, results, batch_wall, baseline_duration, samples, before_gpu)
         "avg_total_sec": None if not totals else round(statistics.mean(totals), 3),
         "p50_total_sec": None if not totals else round(percentile(totals, 0.5), 3),
         "p95_total_sec": None if not totals else round(percentile(totals, 0.95), 3),
-        "approx_avg_rtf": None
-        if not totals or not baseline_duration
-        else round(statistics.mean(totals) / baseline_duration, 3),
-        "approx_p95_rtf": None
-        if not totals or not baseline_duration
-        else round(percentile(totals, 0.95) / baseline_duration, 3),
+        "approx_avg_rtf": (
+            None if not totals or not baseline_duration else round(statistics.mean(totals) / baseline_duration, 3)
+        ),
+        "approx_p95_rtf": (
+            None if not totals or not baseline_duration else round(percentile(totals, 0.95) / baseline_duration, 3)
+        ),
         "peak_gpu_mem_mib": peak_mem,
         "peak_gpu_util_pct": peak_util,
         "first_error": errs[0].get("error") if errs else None,
@@ -248,9 +248,7 @@ def summarize(name, results, batch_wall, baseline_duration, samples, before_gpu)
 
 
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="Benchmark Nano-vLLM latent-ref concurrency."
-    )
+    p = argparse.ArgumentParser(description="Benchmark Nano-vLLM latent-ref concurrency.")
     p.add_argument("--base-url", default="http://127.0.0.1:8800")
     p.add_argument("--text", default="这是十五字并发测试语音样本文本")
     p.add_argument("--concurrency", nargs="+", type=int, default=[5, 10])
@@ -267,20 +265,14 @@ def main():
     args = parse_args()
     ref = args.ref_wav
     if not ref:
-        cands = sorted(
-            glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True
-        )
+        cands = sorted(glob.glob("/tmp/gradio/*/audio.wav"), key=os.path.getmtime, reverse=True)
         if not cands:
-            raise SystemExit(
-                "no reference wav found under /tmp/gradio/*/audio.wav; pass --ref-wav"
-            )
+            raise SystemExit("no reference wav found under /tmp/gradio/*/audio.wav; pass --ref-wav")
         ref = cands[0]
     with open(ref, "rb") as f:
         ref_b64 = base64.b64encode(f.read()).decode("ascii")
 
-    requests.get(
-        args.base_url + "/health", timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
-    ).raise_for_status()
+    requests.get(args.base_url + "/health", timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)).raise_for_status()
     enc_sec, enc = encode_latents(args.base_url, ref_b64, args.wav_format)
     payload = {
         "target_text": args.text,
@@ -314,10 +306,7 @@ def main():
         barrier = threading.Barrier(c)
         t0 = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=c) as ex:
-            futs = [
-                ex.submit(one_request, i, args.base_url, payload, barrier)
-                for i in range(c)
-            ]
+            futs = [ex.submit(one_request, i, args.base_url, payload, barrier) for i in range(c)]
             results = [f.result() for f in futs]
         batch_wall = time.time() - t0
         mon.stop()

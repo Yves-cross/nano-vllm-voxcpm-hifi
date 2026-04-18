@@ -26,15 +26,11 @@ logger = logging.getLogger("uvicorn.error")
         500: {"description": "Internal error", "model": ErrorResponse},
     },
 )
-async def add_reference(
-    req: AddReferenceRequest, server: Any = Depends(get_server)
-) -> AddReferenceResponse:
+async def add_reference(req: AddReferenceRequest, server: Any = Depends(get_server)) -> AddReferenceResponse:
     try:
         wav = base64.b64decode(req.wav_base64)
     except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid base64 in wav_base64: {e}"
-        ) from e
+        raise HTTPException(status_code=400, detail=f"Invalid base64 in wav_base64: {e}") from e
 
     t0 = perf_counter()
     reference_id = await server.add_reference(wav, req.wav_format)
@@ -69,7 +65,5 @@ async def delete_reference(reference_id: str, server: Any = Depends(get_server))
     try:
         await server.remove_reference(reference_id)
     except KeyError as e:
-        raise HTTPException(
-            status_code=404, detail=f"Reference with id {reference_id} not found"
-        ) from e
+        raise HTTPException(status_code=404, detail=f"Reference with id {reference_id} not found") from e
     return None

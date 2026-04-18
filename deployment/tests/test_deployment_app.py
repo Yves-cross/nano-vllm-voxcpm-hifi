@@ -123,9 +123,7 @@ def test_generate_streams_mp3(app):
 
 
 def test_generate_with_reference_latents(app):
-    ref_latents_b64 = base64.b64encode(
-        np.arange(0, 64, dtype=np.float32).tobytes()
-    ).decode("utf-8")
+    ref_latents_b64 = base64.b64encode(np.arange(0, 64, dtype=np.float32).tobytes()).decode("utf-8")
     with TestClient(app) as client:
         with client.stream(
             "POST",

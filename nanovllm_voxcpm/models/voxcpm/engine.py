@@ -38,15 +38,11 @@ class VoxCPMEngine(LLMEngineBase):
         # This must be consistent with CUDA graph capture shapes.
         self.max_model_len = config.max_model_len
 
-        self.tokenizer = mask_multichar_chinese_tokens(
-            LlamaTokenizerFast.from_pretrained(config.model)
-        )
+        self.tokenizer = mask_multichar_chinese_tokens(LlamaTokenizerFast.from_pretrained(config.model))
 
         super().__init__(VoxCPMRunner, config, config.tensor_parallel_size)
 
-    def preprocess_seq(
-        self, seq: Sequence[VoxCPMSeqPayload], is_prefill: bool
-    ) -> RunnerTask[VoxCPMPayload]:
+    def preprocess_seq(self, seq: Sequence[VoxCPMSeqPayload], is_prefill: bool) -> RunnerTask[VoxCPMPayload]:
         if is_prefill:
             if len(seq.custom_payload.feats) > 1:
                 feats = np.concatenate(seq.custom_payload.feats, axis=0)
@@ -79,22 +75,16 @@ class VoxCPMEngine(LLMEngineBase):
                 len(seq) - 1,
                 seq.block_size,
                 VoxCPMPayload(
-                    text_tokens=np.array(
-                        seq.custom_payload.text_tokens[-1:], dtype=np.int64
-                    ),
+                    text_tokens=np.array(seq.custom_payload.text_tokens[-1:], dtype=np.int64),
                     feats=seq.custom_payload.feats[-1][-1:],
-                    feat_masks=np.array(
-                        seq.custom_payload.feat_masks[-1:], dtype=np.bool_
-                    ),
+                    feat_masks=np.array(seq.custom_payload.feat_masks[-1:], dtype=np.bool_),
                     temperature=seq.custom_payload.temperature,
                     cfg_value=seq.custom_payload.cfg_value,
                     padding_decode=seq.custom_payload.decode_pad,
                 ),
             )
 
-    def postprocess_seq(
-        self, seq: Sequence[VoxCPMSeqPayload], outputs: dict, is_prefill: bool
-    ):
+    def postprocess_seq(self, seq: Sequence[VoxCPMSeqPayload], outputs: dict, is_prefill: bool):
         stop_flag = outputs["stop_flag"]
         latents = outputs["latents"]
         waveforms = outputs["waveforms"]
@@ -109,9 +99,9 @@ class VoxCPMEngine(LLMEngineBase):
 
         latents = latents.reshape(-1, self.feat_dim)
         if seq.custom_payload.decode_pad is not None:
-            seq.custom_payload.decode_pad = np.concatenate(
-                [seq.custom_payload.decode_pad, latents], axis=0
-            )[-self.n_decode_pad_frames :]
+            seq.custom_payload.decode_pad = np.concatenate([seq.custom_payload.decode_pad, latents], axis=0)[
+                -self.n_decode_pad_frames :
+            ]
         else:
             seq.custom_payload.decode_pad = latents[-self.n_decode_pad_frames :]
 
@@ -119,8 +109,7 @@ class VoxCPMEngine(LLMEngineBase):
             seq.stoped = True
         elif (
             seq.custom_payload.max_generate_length is not None
-            and len(seq.custom_payload.generated_waveforms)
-            >= seq.custom_payload.max_generate_length
+            and len(seq.custom_payload.generated_waveforms) >= seq.custom_payload.max_generate_length
         ):
             seq.stoped = True
 
@@ -135,16 +124,10 @@ class VoxCPMEngine(LLMEngineBase):
         cfg_value: float = 1.0,
     ):
         if max_generate_length < 1:
-            raise ValueError(
-                f"max_generate_length must be >= 1, got {max_generate_length}"
-            )
+            raise ValueError(f"max_generate_length must be >= 1, got {max_generate_length}")
 
-        text_tokens = self.tokenizer(prompt_text + target_text) + [
-            self.audio_start_token
-        ]
-        audio_feat = np.zeros(
-            (len(text_tokens), self.patch_size, self.feat_dim), dtype=np.float32
-        )
+        text_tokens = self.tokenizer(prompt_text + target_text) + [self.audio_start_token]
+        audio_feat = np.zeros((len(text_tokens), self.patch_size, self.feat_dim), dtype=np.float32)
         feat_masks = [False for _ in range(len(text_tokens))]
         hash_tokens = []
         for t in text_tokens:
